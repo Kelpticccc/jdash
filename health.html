@@ -518,12 +518,90 @@ main {
   <div class="attribution">// editable template · all data stays in your browser</div>
 </main>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 (() => {
   'use strict';
 
   const storeGet = (k) => { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } };
-  const storeSet = (k, v) => localStorage.setItem(k, JSON.stringify(v));
+
+  // ── Sync ────────────────────────────────────────────────────────
+  const _SB_URL  = 'https://stbfzmdvjcnxgsorekvy.supabase.co';
+  const _SB_KEY  = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN0YmZ6bWR2amNueGdzb3Jla3Z5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk3NzYwNTYsImV4cCI6MjA5NTM1MjA1Nn0.j9zePA6whCpIa6vizzzJjU4nQQC6YTr9Aj7BLxe5gLA';
+  const _SB_SYNC = 'health_stack';
+  let _supa = null, _pushTimer = null, _lastJson = null;
+
+  function _collectState() {
+    const taken = {};
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k && k.indexOf('stack:taken:') === 0) {
+        try { taken[k.slice('stack:taken:'.length)] = JSON.parse(localStorage.getItem(k)); } catch {}
+      }
+    }
+    return { 'stack:items': storeGet('stack:items'), 'stack:version': storeGet('stack:version'), 'stack:taken': taken, 'stack:low': storeGet('stack:low') };
+  }
+  function _applyRemote(data) {
+    if (data['stack:items'] != null) try { localStorage.setItem('stack:items', JSON.stringify(data['stack:items'])); } catch {}
+    if (data['stack:version'] != null) try { localStorage.setItem('stack:version', JSON.stringify(data['stack:version'])); } catch {}
+    if (data['stack:taken'] && typeof data['stack:taken'] === 'object') {
+      Object.entries(data['stack:taken']).forEach(([date, map]) => {
+        try { localStorage.setItem('stack:taken:' + date, JSON.stringify(map)); } catch {}
+      });
+    }
+    if (data['stack:low'] != null) try { localStorage.setItem('stack:low', JSON.stringify(data['stack:low'])); } catch {}
+    render();
+  }
+  function _schedulePush() {
+    if (_pushTimer) clearTimeout(_pushTimer);
+    _pushTimer = setTimeout(_doPush, 1500);
+  }
+  async function _doPush() {
+    const state = _collectState();
+    const json  = JSON.stringify(state);
+    if (json === _lastJson) return;
+    try {
+      const res = await fetch(_SB_URL + '/rest/v1/app_state?on_conflict=key', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'apikey': _SB_KEY, 'Authorization': 'Bearer ' + _SB_KEY, 'Prefer': 'resolution=merge-duplicates' },
+        body: JSON.stringify({ key: _SB_SYNC, data: state, updated_at: new Date().toISOString() })
+      });
+      if (res.ok) _lastJson = json;
+    } catch {}
+  }
+  async function _doPull() {
+    try {
+      const res  = await fetch(_SB_URL + '/rest/v1/app_state?key=eq.' + _SB_SYNC + '&select=data',
+        { headers: { 'apikey': _SB_KEY, 'Authorization': 'Bearer ' + _SB_KEY } });
+      const rows = await res.json();
+      if (!rows || !rows.length || !rows[0].data) return;
+      const remote     = rows[0].data;
+      const remoteJson = JSON.stringify(remote);
+      if (remoteJson === _lastJson) return;
+      _lastJson = remoteJson;
+      _applyRemote(remote);
+    } catch {}
+  }
+  function _initSync() {
+    if (!window.supabase) return;
+    _supa = window.supabase.createClient(_SB_URL, _SB_KEY);
+    _supa.channel('sync-health_stack')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'app_state', filter: 'key=eq.' + _SB_SYNC },
+        payload => {
+          const remote = payload.new && payload.new.data;
+          if (!remote) return;
+          const j = JSON.stringify(remote);
+          if (j === _lastJson) return;
+          _lastJson = j;
+          _applyRemote(remote);
+        })
+      .subscribe();
+  }
+
+  const storeSet = (k, v) => {
+    localStorage.setItem(k, JSON.stringify(v));
+    if (k.indexOf('stack:') === 0) _schedulePush();
+  };
 
   function getActiveDate() {
     const now = new Date();
@@ -1031,6 +1109,10 @@ main {
 
   render();
   startTicker();
+  _doPull();
+  _initSync();
+  window.addEventListener('focus', _doPull);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) _doPull(); });
 })();
 </script>
 

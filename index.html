@@ -691,12 +691,86 @@ body::after {
 
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 (function () {
   'use strict';
 
   // Paste your Anthropic key here to enable ✨ Polish. Empty = falls back to plain add.
   const ANTHROPIC_API_KEY = '';
+
+  // ── Sync ────────────────────────────────────────────────────────
+  const _SB_URL  = 'https://stbfzmdvjcnxgsorekvy.supabase.co';
+  const _SB_KEY  = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN0YmZ6bWR2amNueGdzb3Jla3Z5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk3NzYwNTYsImV4cCI6MjA5NTM1MjA1Nn0.j9zePA6whCpIa6vizzzJjU4nQQC6YTr9Aj7BLxe5gLA';
+  const _SB_SYNC = 'main';
+  let _supa = null, _pushTimer = null, _lastJson = null;
+
+  function _collectState() {
+    const goals = {};
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k && k.indexOf('goals:') === 0) {
+        try { goals[k] = JSON.parse(localStorage.getItem(k)); } catch {}
+      }
+    }
+    return { goals, goal_streak_v1: storeGet('goal_streak_v1') };
+  }
+  function _applyRemote(data) {
+    if (data.goals && typeof data.goals === 'object') {
+      Object.entries(data.goals).forEach(([k, v]) => {
+        try { localStorage.setItem(k, JSON.stringify(v)); } catch {}
+      });
+    }
+    if (data.goal_streak_v1 != null) {
+      try { localStorage.setItem('goal_streak_v1', JSON.stringify(data.goal_streak_v1)); } catch {}
+    }
+    loadToday(); loadTomorrow(); renderStreak();
+  }
+  function _schedulePush() {
+    if (_pushTimer) clearTimeout(_pushTimer);
+    _pushTimer = setTimeout(_doPush, 1500);
+  }
+  async function _doPush() {
+    const state = _collectState();
+    const json  = JSON.stringify(state);
+    if (json === _lastJson) return;
+    try {
+      const res = await fetch(_SB_URL + '/rest/v1/app_state?on_conflict=key', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'apikey': _SB_KEY, 'Authorization': 'Bearer ' + _SB_KEY, 'Prefer': 'resolution=merge-duplicates' },
+        body: JSON.stringify({ key: _SB_SYNC, data: state, updated_at: new Date().toISOString() })
+      });
+      if (res.ok) _lastJson = json;
+    } catch {}
+  }
+  async function _doPull() {
+    try {
+      const res  = await fetch(_SB_URL + '/rest/v1/app_state?key=eq.' + _SB_SYNC + '&select=data',
+        { headers: { 'apikey': _SB_KEY, 'Authorization': 'Bearer ' + _SB_KEY } });
+      const rows = await res.json();
+      if (!rows || !rows.length || !rows[0].data) return;
+      const remote     = rows[0].data;
+      const remoteJson = JSON.stringify(remote);
+      if (remoteJson === _lastJson) return;
+      _lastJson = remoteJson;
+      _applyRemote(remote);
+    } catch {}
+  }
+  function _initSync() {
+    if (!window.supabase) return;
+    _supa = window.supabase.createClient(_SB_URL, _SB_KEY);
+    _supa.channel('sync-main')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'app_state', filter: 'key=eq.' + _SB_SYNC },
+        payload => {
+          const remote = payload.new && payload.new.data;
+          if (!remote) return;
+          const j = JSON.stringify(remote);
+          if (j === _lastJson) return;
+          _lastJson = j;
+          _applyRemote(remote);
+        })
+      .subscribe();
+  }
 
   const WAKE_HOUR  = 8;
   const SLEEP_HOUR = 24;
@@ -709,6 +783,9 @@ body::after {
     try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) {}
     if (typeof key === 'string' && key.indexOf('goals:') === 0) {
       window.dispatchEvent(new CustomEvent('goals-changed'));
+    }
+    if (typeof key === 'string' && (key.indexOf('goals:') === 0 || key === 'goal_streak_v1')) {
+      _schedulePush();
     }
   }
   function storeDelete(key) { try { localStorage.removeItem(key); } catch (e) {} }
@@ -1303,6 +1380,11 @@ body::after {
   window.addEventListener('storage', () => {
     loadToday(); loadTomorrow(); renderStreak();
   });
+
+  _doPull();
+  _initSync();
+  window.addEventListener('focus', _doPull);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) _doPull(); });
 })();
 </script>
 </body>
