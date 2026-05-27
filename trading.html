@@ -418,20 +418,17 @@ body::before {
           const colCost   = (n1.includes('cost') || n1.includes('fee')) ? j+1 : j+2;
           const colPassed = n1.includes('cost') ? j+2 : j+3;
           const colProp   = n1.includes('cost') ? j+3 : j+4;
-          let lastDate = ''; let emptyStreak = 0;
+          let lastDate = '';
           for (let k = i+1; k < cells.length; k++) {
             const rr = cells[k];
-            const dateVal = rr[j];
             const cost = parseFloat(String(rr[colCost] || '').replace(/[$,]/g, ''));
-            // Stop if both date and cost are empty (true end of table)
-            if (!dateVal && !cost) { if (++emptyStreak >= 2) break; continue; }
-            emptyStreak = 0;
+            if (!(cost > 0)) break; // every real eval has a positive cost — stop here
+            const dateVal = rr[j];
             const date = fmtDate(dateVal) || lastDate; // carry merged date forward
-            if (!date) continue;
-            lastDate = date;
+            if (date) lastDate = date;
             const passed = /^(y|yes|true|1|pass)$/i.test(String(rr[colPassed] || '').trim());
             const prop   = String(rr[colProp] || '').trim();
-            result.evalLog.push({ date, cost: cost || 0, passed, prop });
+            result.evalLog.push({ date: lastDate, cost, passed, prop });
           }
           console.log('[Trading] Eval log found at row', i, 'col', j, '→', result.evalLog.length, 'entries');
         }
