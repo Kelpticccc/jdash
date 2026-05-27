@@ -1036,12 +1036,10 @@ body::after {
   window.addEventListener('focus', doPull);
   document.addEventListener('visibilitychange', () => { if (!document.hidden) doPull(); });
 
-  if (window.supabase) {
-    initSync();
-  } else {
-    const _supaScript = document.querySelector('script[src*="supabase"]');
-    if (_supaScript) _supaScript.addEventListener('load', () => { if (window.supabase) initSync(); });
-  }
+  doPull();
+  window.addEventListener('load', function () {
+    if (window.supabase && !supa) initSync();
+  });
 })();
 </script>
 </body>
