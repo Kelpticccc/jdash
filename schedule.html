@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>Schedule</title>
 <script src="topbar.js" defer></script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js" defer></script>
 <style>
 :root {
   --bg: #0A0A0B;
@@ -1039,9 +1039,8 @@ body::after {
   if (window.supabase) {
     initSync();
   } else {
-    document.addEventListener('DOMContentLoaded', () => {
-      if (window.supabase) initSync();
-    });
+    const _supaScript = document.querySelector('script[src*="supabase"]');
+    if (_supaScript) _supaScript.addEventListener('load', () => { if (window.supabase) initSync(); });
   }
 })();
 </script>
