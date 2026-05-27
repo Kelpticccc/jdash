@@ -395,13 +395,18 @@ body::before {
       cells.push(row);
     }
 
-    const result = { evalLog: [], payouts: [] };
+    const result = { evalLog: [], payouts: [], rorForPayout: null };
 
     // Scan every cell in every row — tables are not in col A
     for (let i = 0; i < cells.length; i++) {
       const row = cells[i];
       for (let j = 0; j < row.length; j++) {
         const cell = String(row[j] || '').trim().toLowerCase();
+        // RoR for Payout — label anywhere in sheet, value is the next non-empty cell in same row
+        if (/ror|risk.of.ruin/i.test(cell)) {
+          const nextVal = parseFloat(String(row[j+1] || '').replace(/[$,%]/g, ''));
+          if (!isNaN(nextVal)) result.rorForPayout = nextVal > 1 ? nextVal / 100 : nextVal;
+        }
         if (cell !== 'date') continue;
 
         const n1 = String(row[j+1] || '').trim().toLowerCase();
@@ -418,7 +423,7 @@ body::before {
             const dateVal = rr[j];
             if (!dateVal && dateVal !== 0) break;
             const date = fmtDate(dateVal);
-            if (!date) break;
+            if (!date) continue;
             const cost   = parseFloat(String(rr[colCost]   || '').replace(/[$,]/g, '')) || 0;
             const passed = /^(y|yes|true|1|pass)$/i.test(String(rr[colPassed] || '').trim());
             const prop   = String(rr[colProp] || '').trim();
@@ -427,7 +432,7 @@ body::before {
           console.log('[Trading] Eval log found at row', i, 'col', j, '→', result.evalLog.length, 'entries');
         }
 
-        // Payouts table: Date | Value
+        // Payouts table: Date | Value (but not the eval log)
         if (n1.includes('value') || n1.includes('payout') || n1.includes('amount')) {
           for (let k = i+1; k < cells.length; k++) {
             const rr = cells[k];
@@ -625,6 +630,8 @@ body::before {
     const cumPayouts    = pays.reduce((s, x) => s + x.value, 0);
     const netPL         = cumPayouts - cumCost;
     const last10passed  = log.slice(-10).filter(x => x.passed).length;
+    const ror           = data.rorForPayout;
+    const rorStr        = ror != null ? (ror * 100).toFixed(1) + '%' : '—';
     const items = [
       ['Total Evals',    totalEvals],
       ['Eval Cost',      '$' + cumCost.toFixed(0)],
@@ -633,7 +640,7 @@ body::before {
       ['Last 10 Rate',   (last10passed * 10).toFixed(0) + '%'],
       ['Payouts',        '$' + cumPayouts.toFixed(2)],
       ['Net P&L',        (netPL >= 0 ? '+$' : '-$') + Math.abs(netPL).toFixed(2), netPL >= 0 ? 'pos' : 'neg'],
-      ['Cum Eval Cost',  '$' + cumCost.toFixed(0)],
+      ['RoR for Payout', rorStr],
     ];
     document.getElementById('acctOverview').innerHTML = items.map(([l, v, c]) =>
       `<div><div class="acct-item-label">${l}</div><div class="acct-item-val ${c||''}">${v}</div></div>`
