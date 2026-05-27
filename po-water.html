@@ -703,8 +703,47 @@ html, body {
     s.logs = (s.logs && typeof s.logs === 'object') ? s.logs : {};  // {YYYY-MM-DD: number_of_servings}
     return s;
   }
+  // ── Sync ────────────────────────────────────────────────────────
+  const _SB_URL  = 'https://stbfzmdvjcnxgsorekvy.supabase.co';
+  const _SB_KEY  = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN0YmZ6bWR2amNueGdzb3Jla3Z5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk3NzYwNTYsImV4cCI6MjA5NTM1MjA1Nn0.j9zePA6whCpIa6vizzzJjU4nQQC6YTr9Aj7BLxe5gLA';
+  const _SB_SYNC = 'water';
+  let _pushTimer = null, _lastJson = null;
+
+  function _schedulePush() {
+    if (_pushTimer) clearTimeout(_pushTimer);
+    _pushTimer = setTimeout(_doPush, 1500);
+  }
+  async function _doPush() {
+    const json = JSON.stringify(state);
+    if (json === _lastJson) return;
+    try {
+      const res = await fetch(_SB_URL + '/rest/v1/app_state?on_conflict=key', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'apikey': _SB_KEY, 'Authorization': 'Bearer ' + _SB_KEY, 'Prefer': 'resolution=merge-duplicates' },
+        body: JSON.stringify({ key: _SB_SYNC, data: { po_water_v1: state }, updated_at: new Date().toISOString() })
+      });
+      if (res.ok) _lastJson = json;
+    } catch {}
+  }
+  async function _doPull() {
+    try {
+      const res  = await fetch(_SB_URL + '/rest/v1/app_state?key=eq.' + _SB_SYNC + '&select=data',
+        { headers: { 'apikey': _SB_KEY, 'Authorization': 'Bearer ' + _SB_KEY } });
+      const rows = await res.json();
+      if (!rows || !rows.length || !rows[0].data || !rows[0].data.po_water_v1) return;
+      const remote     = rows[0].data.po_water_v1;
+      const remoteJson = JSON.stringify(remote);
+      if (remoteJson === _lastJson) return;
+      _lastJson = remoteJson;
+      state = remote;
+      try { localStorage.setItem(LS_KEY, JSON.stringify(state)); } catch {}
+      renderAll();
+    } catch {}
+  }
+
   function saveState() {
     try { localStorage.setItem(LS_KEY, JSON.stringify(state)); } catch (e) {}
+    _schedulePush();
   }
   let state = loadState();
   $('appTitle').textContent = CONFIG.appTitle || 'Water Coach';
@@ -1090,6 +1129,9 @@ html, body {
 
   // BOOT
   renderAll();
+  _doPull();
+  window.addEventListener('focus', _doPull);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) _doPull(); });
 })();
 </script>
 <style>

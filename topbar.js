@@ -325,20 +325,13 @@ body.topbar-modal-open { overflow: hidden; touch-action: none; }
     };
   }
   async function pushWaterMergedToSupabase(localWater) {
-    if (window.location.pathname.endsWith('/health.html') ||
-        window.location.pathname.endsWith('health.html')) return;
-    if (!window.supabase || !TOPBAR_SUPABASE_URL || !TOPBAR_SUPABASE_KEY) return;
-    if (TOPBAR_SUPABASE_URL.indexOf('PASTE-') === 0) return;
+    if (!TOPBAR_SUPABASE_URL || TOPBAR_SUPABASE_URL.indexOf('PASTE-') === 0) return;
     try {
-      const supa = window.supabase.createClient(TOPBAR_SUPABASE_URL, TOPBAR_SUPABASE_KEY);
-      const { data } = await supa
-        .from('app_state').select('data').eq('key', 'health').maybeSingle();
-      const current = (data && data.data) || {};
-      const merged = Object.assign({}, current, { po_water_v1: localWater });
-      await supa.from('app_state').upsert(
-        { key: 'health', data: merged, updated_at: new Date().toISOString() },
-        { onConflict: 'key' }
-      );
+      await fetch(TOPBAR_SUPABASE_URL + '/rest/v1/app_state?on_conflict=key', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'apikey': TOPBAR_SUPABASE_KEY, 'Authorization': 'Bearer ' + TOPBAR_SUPABASE_KEY, 'Prefer': 'resolution=merge-duplicates' },
+        body: JSON.stringify({ key: 'water', data: { po_water_v1: localWater }, updated_at: new Date().toISOString() })
+      });
     } catch (e) {}
   }
   function addWater() {
