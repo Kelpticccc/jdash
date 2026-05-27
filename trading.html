@@ -298,12 +298,18 @@ body::before {
       return fmtDate(d);
     }
     const s = String(v).trim();
-    // already YYYY-MM-DD
     if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
-    // MM/DD/YYYY
     const m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-    if (m) return m[3] + '-' + m[1].padStart(2,'0') + '-' + m[2].padStart(2,'0');
-    return ''; // day names or unrecognised
+    if (m) {
+      const a = parseInt(m[1]), b = parseInt(m[2]);
+      // if first part > 12 it must be DD/MM/YYYY
+      if (a > 12) return m[3] + '-' + m[2].padStart(2,'0') + '-' + m[1].padStart(2,'0');
+      // if second part > 12 it must be MM/DD/YYYY
+      if (b > 12) return m[3] + '-' + m[1].padStart(2,'0') + '-' + m[2].padStart(2,'0');
+      // ambiguous — default to DD/MM/YYYY (user's locale)
+      return m[3] + '-' + m[2].padStart(2,'0') + '-' + m[1].padStart(2,'0');
+    }
+    return '';
   }
   function fmtR(r) {
     if (r == null || r === '') return '—';
@@ -322,18 +328,20 @@ body::before {
     const rows = XLSX.utils.sheet_to_json(ws, { header: 1, raw: true, defval: '' });
     if (rows.length < 2) return [];
     const hdr = rows[0].map(h => String(h || '').trim());
-    const col  = n => hdr.indexOf(n);
+    const col  = n => hdr.findIndex(h => h.toLowerCase().trim() === n.toLowerCase().trim());
 
     const iDate    = col('Date');
     const iPair    = col('Pair');
     const iSess    = col('Session');
     const iRisk    = col('Risk (%)');
-    const iPnlR    = col('PnL');
-    const iPnlUSD  = hdr.findIndex(h => h.includes('$') && h.toLowerCase().includes('pnl'));
+    const iPnlR    = hdr.findIndex(h => /^pnl(\s*\(r\))?$/i.test(h.trim()));
+    const iPnlUSD  = hdr.findIndex(h => h.includes('$') && /pnl/i.test(h));
     const iOutcome = col('Outcome');
     const iAccType = col('Account Type');
     const iAccSize = col('Acc Size');
     const iRules   = col('Followed Rules');
+    console.log('[Trading] Sheet3 headers:', hdr);
+    console.log('[Trading] Col indices → date:', iDate, 'pair:', iPair, 'sess:', iSess, 'risk:', iRisk, 'pnlR:', iPnlR, 'outcome:', iOutcome, 'accType:', iAccType, 'accSize:', iAccSize, 'rules:', iRules);
 
     const trades = [];
     for (let i = 1; i < rows.length; i++) {
@@ -346,6 +354,8 @@ body::before {
       let pnlUSD   = iPnlUSD >= 0 ? parseFloat(r[iPnlUSD]) || null : null;
       if (pnlUSD == null && accSz > 0 && risk > 0) pnlUSD = accSz * risk * pnlR;
       const date = fmtDate(r[iDate]);
+      const rawType = String(r[iAccType] || '').trim().toLowerCase();
+      const accountType = rawType.includes('fund') ? 'Funded' : rawType.includes('eval') ? 'Eval' : String(r[iAccType] || '').trim();
       trades.push({
         date,
         pair:         String(r[iPair]    || '').trim(),
@@ -353,9 +363,16 @@ body::before {
         pnlR,
         pnlUSD,
         outcome,
-        accountType:  String(r[iAccType] || '').trim(),
+        accountType,
         followedRules: String(r[iRules]  || '').trim().toUpperCase() === 'Y',
       });
+    }
+    console.log('[Trading] Parsed', trades.length, 'trades');
+    if (trades.length) {
+      console.log('[Trading] Sample:', trades[0]);
+      console.log('[Trading] Dates (first 5):', [...new Set(trades.map(x => x.date))].slice(0, 5));
+      console.log('[Trading] Account types:', [...new Set(trades.map(x => x.accountType))]);
+      console.log('[Trading] Outcomes:', [...new Set(trades.map(x => x.outcome))]);
     }
     return trades;
   }
