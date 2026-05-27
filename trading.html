@@ -340,8 +340,8 @@ body::before {
     const iPair    = col('Pair');
     const iSess    = col('Session');
     const iRisk    = col('Risk (%)');
-    const iPnlR    = hdr.findIndex(h => /^pnl(\s*\(r\))?$/i.test(h.trim()));
-    const iPnlUSD  = hdr.findIndex(h => h.includes('$') && /pnl/i.test(h));
+    const iPnlR    = hdr.findIndex(h => /^(rr\s*secured|r\s*multiple|pnl\s*\(r\)|net\s*r|rr)$/i.test(h.trim()));
+    const iPnlUSD  = hdr.findIndex(h => /^pnl$/i.test(h.trim()) || (h.includes('$') && /pnl/i.test(h)));
     const iOutcome = col('Outcome');
     const iAccType = col('Account Type');
     const iAccSize = col('Acc Size');
@@ -370,7 +370,7 @@ body::before {
         pnlUSD,
         outcome,
         accountType,
-        followedRules: String(r[iRules]  || '').trim().toUpperCase() === 'Y',
+        followedRules: /^(y|yes|true|1)$/i.test(String(r[iRules] || '').trim()),
       });
     }
     console.log('[Trading] Parsed', trades.length, 'trades');
