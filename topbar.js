@@ -82,6 +82,20 @@
   font-size: 20px; line-height: 1;
   filter: grayscale(100%) brightness(1.4); opacity: 0.85;
 }
+.topbar-trading-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 44px; height: 42px;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 12px; text-decoration: none;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.15s;
+}
+.topbar-trading-btn:hover { background: rgba(255, 255, 255, 0.08); }
+.topbar-trading-icon {
+  font-size: 20px; line-height: 1;
+  filter: grayscale(100%) brightness(1.4); opacity: 0.85;
+}
 .bottombar {
   position: fixed; bottom: 0; left: 0; right: 0; z-index: 40;
   display: flex; justify-content: space-around; align-items: stretch;
@@ -133,6 +147,8 @@ body.has-bottombar {
   .topbar-water-add { width: 40px; font-size: 18px; }
   .topbar-finance-btn { width: 40px; height: 38px; }
   .topbar-finance-icon { font-size: 18px; }
+  .topbar-trading-btn { width: 40px; height: 38px; }
+  .topbar-trading-icon { font-size: 18px; }
   .bottombar-tab-icon { font-size: 22px; }
   .bottombar-tab { font-size: 10px; }
 }
@@ -174,6 +190,9 @@ body.topbar-modal-open { overflow: hidden; touch-action: none; }
   </div>
   <a href="finance.html" class="topbar-finance-btn" id="topbarFinance" aria-label="Finance">
     <span class="topbar-finance-icon">📊</span>
+  </a>
+  <a href="trading.html" class="topbar-trading-btn" id="topbarTrading" aria-label="Trading">
+    <span class="topbar-trading-icon">📈</span>
   </a>
 </header>`;
 

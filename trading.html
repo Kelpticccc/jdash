@@ -1,0 +1,827 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#0a0a0b">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Trading</title>
+<script src="topbar.js" defer></script>
+<style>
+:root {
+  --bg: #0A0A0B; --bg-deep: #050506; --bg-card: rgba(255,255,255,0.04);
+  --glass-shadow: 0 1px 0 0 rgba(255,255,255,0.06) inset, 0 8px 32px rgba(0,0,0,0.40);
+  --text-primary: #FAFAFA; --text-secondary: #B8B6B0; --text-tertiary: #76746E;
+  --success: #6EE7B7; --danger: #FF6B6B; --warning: #FBBF24; --info: #7DD3FC;
+  --radius-md: 12px; --radius-lg: 16px;
+  --font: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { background: var(--bg-deep); color: var(--text-primary); font-family: var(--font); -webkit-font-smoothing: antialiased; min-height: 100%; scrollbar-width: none; }
+body::-webkit-scrollbar { display: none; }
+body::before {
+  content: ''; position: fixed; inset: -10%; z-index: -2;
+  background: radial-gradient(55% 40% at 20% 10%, rgba(110,231,183,0.08) 0%, transparent 55%),
+    radial-gradient(50% 40% at 80% 85%, rgba(125,211,252,0.06) 0%, transparent 55%),
+    linear-gradient(180deg, #0A0A0B 0%, #050506 100%);
+  filter: blur(40px); pointer-events: none;
+}
+
+.shell {
+  max-width: 680px; margin: 0 auto;
+  padding: 16px calc(16px + env(safe-area-inset-right)) calc(100px + env(safe-area-inset-bottom)) calc(16px + env(safe-area-inset-left));
+}
+
+/* ── Page header ─── */
+.page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; gap: 10px; }
+.page-title { font-size: 22px; font-weight: 700; letter-spacing: -0.02em; }
+.header-right { display: flex; align-items: center; gap: 8px; }
+.sync-dot { font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; font-family: var(--font-mono); color: var(--text-tertiary); }
+.import-btn {
+  display: flex; align-items: center; gap: 6px;
+  padding: 9px 14px;
+  background: linear-gradient(135deg, rgba(110,231,183,0.15), rgba(125,211,252,0.15));
+  border: 1px solid rgba(110,231,183,0.25);
+  border-radius: 10px; color: var(--success);
+  font-family: var(--font); font-size: 13px; font-weight: 700;
+  cursor: pointer; -webkit-tap-highlight-color: transparent;
+  transition: background 0.15s;
+}
+.import-btn:hover { background: linear-gradient(135deg, rgba(110,231,183,0.25), rgba(125,211,252,0.25)); }
+.import-btn:active { opacity: 0.85; }
+
+/* ── Sub-tabs ─── */
+.subtabs { display: flex; gap: 4px; margin-bottom: 20px; background: var(--bg-card); border-radius: 12px; padding: 4px; }
+.subtab {
+  flex: 1; padding: 9px; background: transparent; border: none;
+  border-radius: 9px; color: var(--text-tertiary);
+  font-family: var(--font); font-size: 13px; font-weight: 600;
+  cursor: pointer; -webkit-tap-highlight-color: transparent; transition: background 0.15s, color 0.15s;
+}
+.subtab.active { background: rgba(255,255,255,0.08); color: var(--text-primary); }
+
+/* ── Section label ─── */
+.section-label {
+  font-size: 10px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase;
+  color: var(--text-tertiary); font-family: var(--font-mono);
+  margin-bottom: 10px; margin-top: 22px;
+  display: flex; align-items: center; gap: 8px;
+}
+.section-label:first-child { margin-top: 0; }
+.section-label::after { content: ''; flex: 1; height: 1px; background: linear-gradient(90deg, rgba(255,255,255,0.07), transparent); }
+
+/* ── Today cards ─── */
+.today-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.today-card {
+  background: var(--bg-card); border: 1px solid rgba(255,255,255,0.06);
+  border-radius: var(--radius-lg); padding: 16px;
+  box-shadow: var(--glass-shadow);
+}
+.today-card-label { font-size: 9px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--text-tertiary); font-family: var(--font-mono); margin-bottom: 10px; }
+.today-pnl { font-size: 26px; font-weight: 800; letter-spacing: -0.03em; line-height: 1; }
+.today-pnl.pos { color: var(--success); }
+.today-pnl.neg { color: var(--danger); }
+.today-pnl.neu { color: var(--text-secondary); }
+.today-sub { font-size: 12px; color: var(--text-tertiary); margin-top: 4px; font-family: var(--font-mono); }
+.today-meta { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.today-pill {
+  padding: 3px 8px; border-radius: 999px; font-size: 11px; font-weight: 600;
+  background: rgba(255,255,255,0.06); color: var(--text-secondary);
+}
+.today-pill.pass { background: rgba(110,231,183,0.12); color: var(--success); }
+.today-pill.fail { background: rgba(255,107,107,0.12); color: var(--danger); }
+.today-pill.spend { background: rgba(251,191,36,0.12); color: var(--warning); }
+
+/* ── Calendar ─── */
+.cal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.cal-title { font-size: 14px; font-weight: 700; color: var(--text-primary); }
+.cal-nav { display: flex; gap: 4px; }
+.cal-nav-btn {
+  width: 30px; height: 30px; background: var(--bg-card);
+  border: 1px solid rgba(255,255,255,0.08); border-radius: 8px;
+  color: var(--text-secondary); font-size: 14px; font-family: var(--font);
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+  -webkit-tap-highlight-color: transparent; transition: background 0.15s;
+}
+.cal-nav-btn:hover { background: rgba(255,255,255,0.08); }
+.cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; }
+.cal-dow {
+  text-align: center; font-size: 9px; font-weight: 700; letter-spacing: 0.08em;
+  text-transform: uppercase; color: var(--text-tertiary); padding: 4px 0 6px;
+}
+.cal-cell {
+  aspect-ratio: 1; border-radius: 8px; padding: 4px 3px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  font-size: 11px; position: relative; background: rgba(255,255,255,0.02);
+  border: 1px solid transparent; cursor: default;
+}
+.cal-cell.empty { background: transparent; border-color: transparent; }
+.cal-cell.today { border-color: rgba(255,255,255,0.18); }
+.cal-cell-num { font-size: 11px; font-weight: 600; color: var(--text-tertiary); line-height: 1; }
+.cal-cell.today .cal-cell-num { color: var(--text-primary); }
+.cal-cell-val { font-size: 9px; font-weight: 700; margin-top: 2px; line-height: 1; font-family: var(--font-mono); }
+.cal-cell.pos { background: rgba(110,231,183,0.10); border-color: rgba(110,231,183,0.20); }
+.cal-cell.pos .cal-cell-val { color: var(--success); }
+.cal-cell.neg { background: rgba(255,107,107,0.10); border-color: rgba(255,107,107,0.20); }
+.cal-cell.neg .cal-cell-val { color: var(--danger); }
+.cal-cell.be { background: rgba(255,255,255,0.04); }
+.cal-cell.be .cal-cell-val { color: var(--text-tertiary); }
+.cal-spend-dot { position: absolute; top: 3px; right: 4px; width: 5px; height: 5px; border-radius: 50%; background: var(--warning); }
+
+/* ── Stats grid ─── */
+.stats-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.stat-card {
+  background: var(--bg-card); border: 1px solid rgba(255,255,255,0.06);
+  border-radius: var(--radius-lg); padding: 16px;
+  box-shadow: var(--glass-shadow);
+}
+.stat-card-title { font-size: 10px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--text-tertiary); font-family: var(--font-mono); margin-bottom: 12px; }
+.stat-row { display: flex; justify-content: space-between; align-items: baseline; padding: 5px 0; border-bottom: 1px solid rgba(255,255,255,0.04); }
+.stat-row:last-child { border-bottom: none; }
+.stat-key { font-size: 12px; color: var(--text-secondary); }
+.stat-val { font-size: 13px; font-weight: 700; color: var(--text-primary); font-family: var(--font-mono); }
+.stat-val.pos { color: var(--success); }
+.stat-val.neg { color: var(--danger); }
+.stat-val.warn { color: var(--warning); }
+
+.acct-card { background: var(--bg-card); border: 1px solid rgba(255,255,255,0.06); border-radius: var(--radius-lg); padding: 16px; box-shadow: var(--glass-shadow); }
+.acct-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 20px; margin-top: 4px; }
+.acct-item-label { font-size: 11px; color: var(--text-tertiary); margin-bottom: 2px; }
+.acct-item-val { font-size: 17px; font-weight: 700; color: var(--text-primary); letter-spacing: -0.02em; }
+.acct-item-val.pos { color: var(--success); }
+.acct-item-val.neg { color: var(--danger); }
+
+.avgr-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.avgr-table th { text-align: left; color: var(--text-tertiary); font-weight: 600; padding: 4px 8px 8px; font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; }
+.avgr-table td { padding: 6px 8px; border-top: 1px solid rgba(255,255,255,0.04); color: var(--text-secondary); }
+.avgr-table td.val { font-family: var(--font-mono); font-weight: 700; }
+.avgr-table td.pos { color: var(--success); }
+.avgr-table td.neg { color: var(--danger); }
+
+.no-data { text-align: center; padding: 40px 20px; color: var(--text-tertiary); font-size: 13px; }
+.hidden { display: none !important; }
+
+@media (max-width: 480px) {
+  .shell { padding-top: 12px; }
+  .page-title { font-size: 19px; }
+  .today-pnl { font-size: 22px; }
+  .stats-pair { grid-template-columns: 1fr; }
+  .acct-grid { grid-template-columns: 1fr 1fr; }
+}
+</style>
+</head>
+<body>
+<div class="shell">
+
+  <div class="page-header">
+    <h1 class="page-title">Trading</h1>
+    <div class="header-right">
+      <span class="sync-dot" id="syncDot"></span>
+      <button class="import-btn" id="importBtn">⬆ Import Excel</button>
+    </div>
+  </div>
+
+  <div class="subtabs">
+    <button class="subtab active" data-tab="overview">Overview</button>
+    <button class="subtab" data-tab="stats">Stats</button>
+  </div>
+
+  <!-- OVERVIEW -->
+  <div id="tabOverview">
+    <div class="section-label">Today</div>
+    <div class="today-row">
+      <div class="today-card" id="fundedToday">
+        <div class="today-card-label">Funded</div>
+        <div class="today-pnl neu" id="fundedPnlR">—</div>
+        <div class="today-sub" id="fundedPnlUSD"></div>
+        <div class="today-meta" id="fundedMeta"></div>
+      </div>
+      <div class="today-card" id="evalTodayCard">
+        <div class="today-card-label">Eval</div>
+        <div class="today-pnl neu" id="evalPnlR">—</div>
+        <div class="today-sub" id="evalPnlUSD"></div>
+        <div class="today-meta" id="evalMeta"></div>
+      </div>
+    </div>
+
+    <div class="section-label" style="margin-top:22px">Funded Calendar</div>
+    <div class="acct-card" style="padding:14px">
+      <div class="cal-header">
+        <div class="cal-title" id="fundedCalTitle"></div>
+        <div class="cal-nav">
+          <button class="cal-nav-btn" id="fundedCalPrev">&#8592;</button>
+          <button class="cal-nav-btn" id="fundedCalNext">&#8594;</button>
+        </div>
+      </div>
+      <div class="cal-grid" id="fundedCal"></div>
+    </div>
+
+    <div class="section-label">Eval Calendar</div>
+    <div class="acct-card" style="padding:14px">
+      <div class="cal-header">
+        <div class="cal-title" id="evalCalTitle"></div>
+        <div class="cal-nav">
+          <button class="cal-nav-btn" id="evalCalPrev">&#8592;</button>
+          <button class="cal-nav-btn" id="evalCalNext">&#8594;</button>
+        </div>
+      </div>
+      <div class="cal-grid" id="evalCal"></div>
+    </div>
+  </div>
+
+  <!-- STATS -->
+  <div id="tabStats" class="hidden">
+    <div class="section-label">Performance</div>
+    <div class="stats-pair">
+      <div class="stat-card">
+        <div class="stat-card-title">Funded</div>
+        <div id="fundedStats"></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-card-title">Eval</div>
+        <div id="evalStats"></div>
+      </div>
+    </div>
+
+    <div class="section-label">Account Overview</div>
+    <div class="acct-card">
+      <div class="acct-grid" id="acctOverview"></div>
+    </div>
+
+    <div class="section-label">Average R</div>
+    <div class="acct-card">
+      <table class="avgr-table" id="avgrTable"></table>
+    </div>
+  </div>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+(function () {
+  'use strict';
+
+  const SB_URL   = 'https://stbfzmdvjcnxgsorekvy.supabase.co';
+  const SB_KEY   = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN0YmZ6bWR2amNueGdzb3Jla3Z5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk3NzYwNTYsImV4cCI6MjA5NTM1MjA1Nn0.j9zePA6whCpIa6vizzzJjU4nQQC6YTr9Aj7BLxe5gLA';
+  const SB_SYNC  = 'trading';
+  const LS_KEY   = 'trading_v1';
+  const MON      = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const DAYS     = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+
+  let data       = null;
+  let supa       = null;
+  let pushTimer  = null;
+  let lastJson   = null;
+  let fundedCalMonth = new Date();
+  let evalCalMonth   = new Date();
+  fundedCalMonth.setDate(1);
+  evalCalMonth.setDate(1);
+
+  // ── IndexedDB file handle persistence ────────────────────────
+  function idbOpen() {
+    return new Promise((res, rej) => {
+      const req = indexedDB.open('trading-fsa', 1);
+      req.onupgradeneeded = e => e.target.result.createObjectStore('handles');
+      req.onsuccess = e => res(e.target.result);
+      req.onerror   = rej;
+    });
+  }
+  async function idbPut(key, val) {
+    const db = await idbOpen();
+    return new Promise((res, rej) => {
+      const tx = db.transaction('handles', 'readwrite');
+      tx.objectStore('handles').put(val, key);
+      tx.oncomplete = res; tx.onerror = rej;
+    });
+  }
+  async function idbGet(key) {
+    const db = await idbOpen();
+    return new Promise((res, rej) => {
+      const tx = db.transaction('handles', 'readonly');
+      const req = tx.objectStore('handles').get(key);
+      req.onsuccess = () => res(req.result); req.onerror = rej;
+    });
+  }
+
+  // ── Date helpers ──────────────────────────────────────────────
+  function todayStr() {
+    const d = new Date();
+    return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+  }
+  function fmtDate(v) {
+    if (!v) return '';
+    if (v instanceof Date) {
+      if (isNaN(v)) return '';
+      return v.getFullYear() + '-' + String(v.getMonth()+1).padStart(2,'0') + '-' + String(v.getDate()).padStart(2,'0');
+    }
+    if (typeof v === 'number' && v > 25569) {
+      const d = new Date(Math.round((v - 25569) * 86400 * 1000));
+      return fmtDate(d);
+    }
+    const s = String(v).trim();
+    // already YYYY-MM-DD
+    if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+    // MM/DD/YYYY
+    const m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+    if (m) return m[3] + '-' + m[1].padStart(2,'0') + '-' + m[2].padStart(2,'0');
+    return ''; // day names or unrecognised
+  }
+  function fmtR(r) {
+    if (r == null || r === '') return '—';
+    const n = parseFloat(r);
+    if (isNaN(n)) return '—';
+    return (n >= 0 ? '+' : '') + n.toFixed(2) + 'R';
+  }
+  function fmtUSD(n) {
+    if (n == null || isNaN(n)) return '';
+    return (n >= 0 ? '+$' : '-$') + Math.abs(n).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+  }
+  function rClass(r) { return r > 0 ? 'pos' : r < 0 ? 'neg' : 'neu'; }
+
+  // ── Excel parsing ─────────────────────────────────────────────
+  function parseSheet3(ws) {
+    const rows = XLSX.utils.sheet_to_json(ws, { header: 1, raw: true, defval: '' });
+    if (rows.length < 2) return [];
+    const hdr = rows[0].map(h => String(h || '').trim());
+    const col  = n => hdr.indexOf(n);
+
+    const iDate    = col('Date');
+    const iPair    = col('Pair');
+    const iSess    = col('Session');
+    const iRisk    = col('Risk (%)');
+    const iPnlR    = col('PnL');
+    const iPnlUSD  = hdr.findIndex(h => h.includes('$') && h.toLowerCase().includes('pnl'));
+    const iOutcome = col('Outcome');
+    const iAccType = col('Account Type');
+    const iAccSize = col('Acc Size');
+    const iRules   = col('Followed Rules');
+
+    const trades = [];
+    for (let i = 1; i < rows.length; i++) {
+      const r = rows[i];
+      const outcome = String(r[iOutcome] || '').trim().toUpperCase();
+      if (!outcome || !['TP','SL','BE'].includes(outcome)) continue;
+      const pnlR   = parseFloat(r[iPnlR]) || 0;
+      const accSz  = parseFloat(r[iAccSize]);
+      const risk   = parseFloat(r[iRisk]) || 0;
+      let pnlUSD   = iPnlUSD >= 0 ? parseFloat(r[iPnlUSD]) || null : null;
+      if (pnlUSD == null && accSz > 0 && risk > 0) pnlUSD = accSz * risk * pnlR;
+      const date = fmtDate(r[iDate]);
+      trades.push({
+        date,
+        pair:         String(r[iPair]    || '').trim(),
+        session:      String(r[iSess]    || '').trim().toUpperCase(),
+        pnlR,
+        pnlUSD,
+        outcome,
+        accountType:  String(r[iAccType] || '').trim(),
+        followedRules: String(r[iRules]  || '').trim().toUpperCase() === 'Y',
+      });
+    }
+    return trades;
+  }
+
+  function parseSheet4(ws) {
+    const range  = XLSX.utils.decode_range(ws['!ref'] || 'A1:A1');
+    const cells  = [];
+    for (let r = range.s.r; r <= range.e.r; r++) {
+      const row = [];
+      for (let c = range.s.c; c <= range.e.c; c++) {
+        const cell = ws[XLSX.utils.encode_cell({ r, c })];
+        row.push(cell ? cell.v : '');
+      }
+      cells.push(row);
+    }
+
+    const result = { evalLog: [], payouts: [], bankroll: 1000 };
+
+    for (let i = 0; i < cells.length; i++) {
+      const row = cells[i];
+      const c0  = String(row[0] || '').trim();
+      const c1  = String(row[1] || '').trim();
+
+      // Bankroll
+      if (c0.toLowerCase() === 'bankroll') {
+        result.bankroll = parseFloat(c1.replace(/[$,]/g, '')) || 1000;
+      }
+
+      // Eval log: header row "Date | Cost | Passed | Prop"
+      if (c0 === 'Date' && c1.toLowerCase().includes('cost')) {
+        for (let k = i + 1; k < cells.length; k++) {
+          const rr = cells[k];
+          const dateVal = rr[0];
+          if (!dateVal && dateVal !== 0) break;
+          const date = fmtDate(dateVal);
+          if (!date) break;
+          const cost    = parseFloat(String(rr[1] || '').replace(/[$,]/g, '')) || 0;
+          const passed  = String(rr[2] || '').trim().toUpperCase() === 'Y';
+          const prop    = String(rr[3] || '').trim();
+          result.evalLog.push({ date, cost, passed, prop });
+        }
+      }
+
+      // Payouts: header "Date | Value"
+      if (c0 === 'Date' && c1.toLowerCase().includes('value')) {
+        for (let k = i + 1; k < cells.length; k++) {
+          const rr = cells[k];
+          if (!rr[0]) break;
+          const date = fmtDate(rr[0]);
+          if (!date) break;
+          const val = parseFloat(String(rr[1] || '').replace(/[$,]/g, '')) || 0;
+          if (val) result.payouts.push({ date, value: val });
+        }
+      }
+    }
+    return result;
+  }
+
+  // ── Stats computation ─────────────────────────────────────────
+  function computeStats(trades, type) {
+    const t   = trades.filter(x => x.accountType === type);
+    const total = t.length;
+    if (!total) return null;
+    const wins   = t.filter(x => x.outcome === 'TP');
+    const losses = t.filter(x => x.outcome === 'SL');
+    const bes    = t.filter(x => x.outcome === 'BE');
+    const winR   = wins.reduce((s, x) => s + x.pnlR, 0);
+    const lossR  = losses.reduce((s, x) => s + x.pnlR, 0);
+    const avgWin  = wins.length   ? winR  / wins.length   : 0;
+    const avgLoss = losses.length ? lossR / losses.length : 0;
+    const pf      = lossR !== 0 ? Math.abs(winR / lossR) : (winR > 0 ? Infinity : 0);
+    const wr      = wins.length / total;
+    const lr      = losses.length / total;
+    const ev      = wr * avgWin + lr * avgLoss;
+    const followed = t.filter(x => x.followedRules);
+    const followPct = total ? (followed.length / total) * 100 : 0;
+    const followWins = followed.filter(x => x.outcome === 'TP').length;
+    const breakWins  = t.filter(x => !x.followedRules && x.outcome === 'TP').length;
+    const followWinPct = followed.length ? (followWins / followed.length) * 100 : 0;
+    return {
+      total, wins: wins.length, losses: losses.length, be: bes.length,
+      totalR: t.reduce((s, x) => s + x.pnlR, 0),
+      winRate: wr * 100, lossRate: lr * 100,
+      avgWinR: avgWin, avgLossR: avgLoss,
+      profitFactor: pf, ev, followPct, followWinPct,
+    };
+  }
+
+  function groupByDate(trades, type) {
+    const out = {};
+    trades.filter(x => x.accountType === type && x.date).forEach(x => {
+      if (!out[x.date]) out[x.date] = { pnlR: 0, pnlUSD: 0, hasUSD: false, count: 0 };
+      out[x.date].pnlR  += x.pnlR;
+      if (x.pnlUSD != null) { out[x.date].pnlUSD += x.pnlUSD; out[x.date].hasUSD = true; }
+      out[x.date].count++;
+    });
+    return out;
+  }
+
+  function avgRByField(trades, type, field) {
+    const buckets = {};
+    trades.filter(x => x.accountType === type && x[field]).forEach(x => {
+      const k = x[field];
+      if (!buckets[k]) buckets[k] = { sum: 0, n: 0 };
+      buckets[k].sum += x.pnlR; buckets[k].n++;
+    });
+    const out = {};
+    Object.entries(buckets).forEach(([k, v]) => { out[k] = v.sum / v.n; });
+    return out;
+  }
+
+  // ── Render ────────────────────────────────────────────────────
+  function renderToday() {
+    if (!data) return;
+    const today = todayStr();
+    const trades = data.trades || [];
+
+    const fTrades = trades.filter(x => x.accountType === 'Funded' && x.date === today);
+    const eTrades = trades.filter(x => x.accountType === 'Eval'   && x.date === today);
+    const fR  = fTrades.reduce((s, x) => s + x.pnlR, 0);
+    const fUS = fTrades.some(x => x.pnlUSD != null) ? fTrades.reduce((s, x) => s + (x.pnlUSD || 0), 0) : null;
+    const eR  = eTrades.reduce((s, x) => s + x.pnlR, 0);
+    const eUS = eTrades.some(x => x.pnlUSD != null) ? eTrades.reduce((s, x) => s + (x.pnlUSD || 0), 0) : null;
+
+    const evalLog = data.evalLog || [];
+    const todayEvals  = evalLog.filter(x => x.date === today);
+    const evalPass    = todayEvals.filter(x => x.passed).length;
+    const evalFail    = todayEvals.filter(x => !x.passed).length;
+    const evalSpend   = todayEvals.reduce((s, x) => s + x.cost, 0);
+
+    const fPnlEl = document.getElementById('fundedPnlR');
+    fPnlEl.textContent = fTrades.length ? fmtR(fR) : '—';
+    fPnlEl.className = 'today-pnl ' + (fTrades.length ? rClass(fR) : 'neu');
+    document.getElementById('fundedPnlUSD').textContent = fUS != null ? fmtUSD(fUS) : '';
+    const fMeta = document.getElementById('fundedMeta');
+    fMeta.innerHTML = fTrades.length
+      ? `<span class="today-pill">${fTrades.length} trade${fTrades.length > 1 ? 's' : ''}</span>`
+      : '<span class="today-pill">No trades today</span>';
+
+    const ePnlEl = document.getElementById('evalPnlR');
+    ePnlEl.textContent = eTrades.length ? fmtR(eR) : '—';
+    ePnlEl.className = 'today-pnl ' + (eTrades.length ? rClass(eR) : 'neu');
+    document.getElementById('evalPnlUSD').textContent = eUS != null ? fmtUSD(eUS) : '';
+    const eMeta = document.getElementById('evalMeta');
+    let pills = eTrades.length ? `<span class="today-pill">${eTrades.length} trade${eTrades.length > 1 ? 's' : ''}</span>` : '';
+    if (evalPass)  pills += `<span class="today-pill pass">✓ ${evalPass} passed</span>`;
+    if (evalFail)  pills += `<span class="today-pill fail">✗ ${evalFail} failed</span>`;
+    if (evalSpend) pills += `<span class="today-pill spend">$${evalSpend.toFixed(0)} spent</span>`;
+    if (!pills)    pills  = '<span class="today-pill">No activity today</span>';
+    eMeta.innerHTML = pills;
+  }
+
+  function renderCalendar(gridId, titleId, month, dayData, spendData) {
+    const y = month.getFullYear(), m = month.getMonth();
+    document.getElementById(titleId).textContent = MON[m] + ' ' + y;
+
+    const first = new Date(y, m, 1).getDay();
+    const days  = new Date(y, m + 1, 0).getDate();
+    const today = todayStr();
+
+    let html = DAYS.map(d => `<div class="cal-dow">${d}</div>`).join('');
+    for (let i = 0; i < first; i++) html += '<div class="cal-cell empty"></div>';
+
+    for (let d = 1; d <= days; d++) {
+      const key  = y + '-' + String(m+1).padStart(2,'0') + '-' + String(d).padStart(2,'0');
+      const dat  = dayData[key];
+      const spend = spendData && spendData[key];
+      let cls = 'cal-cell';
+      let val = '';
+      if (dat) {
+        cls += ' ' + (dat.pnlR > 0 ? 'pos' : dat.pnlR < 0 ? 'neg' : 'be');
+        val = fmtR(dat.pnlR);
+      }
+      if (key === today) cls += ' today';
+      const dot = spend ? '<span class="cal-spend-dot" title="Eval spend"></span>' : '';
+      html += `<div class="${cls}"><span class="cal-cell-num">${d}</span>${val ? `<span class="cal-cell-val">${val}</span>` : ''}${dot}</div>`;
+    }
+    document.getElementById(gridId).innerHTML = html;
+  }
+
+  function renderCalendars() {
+    if (!data) {
+      ['fundedCal','evalCal'].forEach(id => { document.getElementById(id).innerHTML = '<div class="no-data" style="grid-column:1/-1;padding:20px">Import your Excel to see calendars</div>'; });
+      document.getElementById('fundedCalTitle').textContent = MON[fundedCalMonth.getMonth()] + ' ' + fundedCalMonth.getFullYear();
+      document.getElementById('evalCalTitle').textContent   = MON[evalCalMonth.getMonth()]   + ' ' + evalCalMonth.getFullYear();
+      return;
+    }
+    const fDay  = groupByDate(data.trades, 'Funded');
+    const eDay  = groupByDate(data.trades, 'Eval');
+    const spend = {};
+    (data.evalLog || []).forEach(x => {
+      if (!spend[x.date]) spend[x.date] = 0;
+      spend[x.date] += x.cost;
+    });
+    renderCalendar('fundedCal', 'fundedCalTitle', fundedCalMonth, fDay, null);
+    renderCalendar('evalCal',   'evalCalTitle',   evalCalMonth,   eDay, spend);
+  }
+
+  function statRows(stats) {
+    if (!stats) return '<div class="no-data">No data</div>';
+    const pf = isFinite(stats.profitFactor) ? stats.profitFactor.toFixed(2) : '∞';
+    const rows = [
+      ['Trades',        stats.total,                         ''],
+      ['Win Rate',      stats.winRate.toFixed(1) + '%',      stats.winRate >= 50 ? 'pos' : 'neg'],
+      ['Loss Rate',     stats.lossRate.toFixed(1) + '%',     stats.lossRate > 50 ? 'neg' : ''],
+      ['Profit Factor', pf,                                  parseFloat(pf) >= 1 ? 'pos' : 'neg'],
+      ['Avg Win R',     fmtR(stats.avgWinR),                 'pos'],
+      ['Avg Loss R',    fmtR(stats.avgLossR),                'neg'],
+      ['EV / trade',    fmtR(stats.ev),                      rClass(stats.ev)],
+      ['Rule Follow',   stats.followPct.toFixed(0) + '%',    stats.followPct >= 70 ? 'pos' : 'warn'],
+      ['Rules Win%',    stats.followWinPct.toFixed(0) + '%', stats.followWinPct >= 50 ? 'pos' : 'neg'],
+    ];
+    return rows.map(([k, v, c]) =>
+      `<div class="stat-row"><span class="stat-key">${k}</span><span class="stat-val ${c}">${v}</span></div>`
+    ).join('');
+  }
+
+  function renderStats() {
+    if (!data) {
+      ['fundedStats','evalStats'].forEach(id => { document.getElementById(id).innerHTML = '<div class="no-data">Import Excel first</div>'; });
+      document.getElementById('acctOverview').innerHTML = '';
+      document.getElementById('avgrTable').innerHTML = '';
+      return;
+    }
+    const fs = computeStats(data.trades, 'Funded');
+    const es = computeStats(data.trades, 'Eval');
+    document.getElementById('fundedStats').innerHTML = statRows(fs);
+    document.getElementById('evalStats').innerHTML   = statRows(es);
+
+    // Account overview
+    const log  = data.evalLog || [];
+    const pays = data.payouts || [];
+    const totalEvals    = log.length;
+    const cumCost       = log.reduce((s, x) => s + x.cost, 0);
+    const passed        = log.filter(x => x.passed).length;
+    const passRate      = totalEvals ? (passed / totalEvals * 100) : 0;
+    const cumPayouts    = pays.reduce((s, x) => s + x.value, 0);
+    const netPL         = cumPayouts - cumCost;
+    const last10passed  = log.slice(-10).filter(x => x.passed).length;
+    const items = [
+      ['Total Evals',    totalEvals],
+      ['Eval Cost',      '$' + cumCost.toFixed(0)],
+      ['Passed',         passed],
+      ['Pass Rate',      passRate.toFixed(1) + '%'],
+      ['Last 10 Rate',   (last10passed * 10).toFixed(0) + '%'],
+      ['Payouts',        '$' + cumPayouts.toFixed(2)],
+      ['Net P&L',        (netPL >= 0 ? '+$' : '-$') + Math.abs(netPL).toFixed(2), netPL >= 0 ? 'pos' : 'neg'],
+      ['Bankroll',       '$' + (data.bankroll || 0).toFixed(0)],
+    ];
+    document.getElementById('acctOverview').innerHTML = items.map(([l, v, c]) =>
+      `<div><div class="acct-item-label">${l}</div><div class="acct-item-val ${c||''}">${v}</div></div>`
+    ).join('');
+
+    // Average R table
+    const byDayF  = avgRByField(data.trades, 'Funded', 'session');
+    const byPairF = avgRByField(data.trades, 'Funded', 'pair');
+    const byDayE  = avgRByField(data.trades, 'Eval',   'session');
+    const byPairE = avgRByField(data.trades, 'Eval',   'pair');
+    const sessions = [...new Set(data.trades.map(x => x.session).filter(Boolean))].sort();
+    const pairs    = [...new Set(data.trades.map(x => x.pair).filter(Boolean))].sort();
+    let tbl = '<thead><tr><th>Field</th><th>Funded Avg R</th><th>Eval Avg R</th></tr></thead><tbody>';
+    sessions.forEach(s => {
+      const f = byDayF[s], e = byDayE[s];
+      tbl += `<tr><td>${s}</td><td class="val ${f!=null?rClass(f):''}">${f!=null?fmtR(f):'—'}</td><td class="val ${e!=null?rClass(e):''}">${e!=null?fmtR(e):'—'}</td></tr>`;
+    });
+    pairs.forEach(p => {
+      const f = byPairF[p], e = byPairE[p];
+      tbl += `<tr><td>${p}</td><td class="val ${f!=null?rClass(f):''}">${f!=null?fmtR(f):'—'}</td><td class="val ${e!=null?rClass(e):''}">${e!=null?fmtR(e):'—'}</td></tr>`;
+    });
+    tbl += '</tbody>';
+    document.getElementById('avgrTable').innerHTML = tbl;
+  }
+
+  function renderAll() { renderToday(); renderCalendars(); renderStats(); }
+
+  // ── Sync ─────────────────────────────────────────────────────
+  function setSyncDot(s) {
+    const el = document.getElementById('syncDot');
+    if (s === 'synced') { el.textContent = '● synced'; el.style.color = '#6EE7B7'; }
+    else if (s === 'error') { el.textContent = '● error'; el.style.color = '#FF6B6B'; }
+    else { el.textContent = ''; }
+    if (s) setTimeout(() => { el.textContent = ''; }, 3000);
+  }
+  function schedulePush() {
+    if (pushTimer) clearTimeout(pushTimer);
+    pushTimer = setTimeout(doPush, 1500);
+  }
+  async function doPush() {
+    if (!data) return;
+    const json = JSON.stringify(data);
+    if (json === lastJson) return;
+    try {
+      const res = await fetch(SB_URL + '/rest/v1/app_state?on_conflict=key', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'apikey': SB_KEY, 'Authorization': 'Bearer ' + SB_KEY, 'Prefer': 'resolution=merge-duplicates' },
+        body: JSON.stringify({ key: SB_SYNC, data, updated_at: new Date().toISOString() })
+      });
+      if (res.ok) { lastJson = json; setSyncDot('synced'); }
+      else setSyncDot('error');
+    } catch { setSyncDot('error'); }
+  }
+  async function doPull() {
+    try {
+      const res  = await fetch(SB_URL + '/rest/v1/app_state?key=eq.' + SB_SYNC + '&select=data',
+        { headers: { 'apikey': SB_KEY, 'Authorization': 'Bearer ' + SB_KEY } });
+      const rows = await res.json();
+      if (!rows || !rows.length || !rows[0].data) return;
+      const remote = rows[0].data;
+      const j = JSON.stringify(remote);
+      if (j === lastJson) return;
+      data = remote; lastJson = j;
+      try { localStorage.setItem(LS_KEY, j); } catch {}
+      renderAll();
+    } catch {}
+  }
+  function initSync() {
+    if (!window.supabase) return;
+    supa = window.supabase.createClient(SB_URL, SB_KEY);
+    supa.channel('sync-trading')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'app_state', filter: 'key=eq.' + SB_SYNC },
+        payload => {
+          const remote = payload.new && payload.new.data;
+          if (!remote) return;
+          const j = JSON.stringify(remote);
+          if (j === lastJson) return;
+          data = remote; lastJson = j;
+          try { localStorage.setItem(LS_KEY, j); } catch {}
+          renderAll();
+        })
+      .subscribe();
+  }
+
+  // ── JSON file write ───────────────────────────────────────────
+  async function saveJSON(d) {
+    try {
+      let dirHandle = await idbGet('tradingDir');
+      if (dirHandle) {
+        const perm = await dirHandle.queryPermission({ mode: 'readwrite' });
+        if (perm !== 'granted') {
+          const req = await dirHandle.requestPermission({ mode: 'readwrite' });
+          if (req !== 'granted') dirHandle = null;
+        }
+      }
+      if (!dirHandle) {
+        dirHandle = await window.showDirectoryPicker({ mode: 'readwrite', startIn: 'documents' });
+        await idbPut('tradingDir', dirHandle);
+      }
+      const fh = await dirHandle.getFileHandle('trading_data.json', { create: true });
+      const w  = await fh.createWritable();
+      await w.write(JSON.stringify(d, null, 2));
+      await w.close();
+    } catch (e) {
+      if (e.name !== 'AbortError') console.warn('JSON save failed:', e);
+    }
+  }
+
+  // ── Import from Excel ─────────────────────────────────────────
+  async function importExcel() {
+    const btn = document.getElementById('importBtn');
+    btn.textContent = '⏳ Reading…';
+    btn.disabled = true;
+    try {
+      let fh = await idbGet('excelFile');
+      if (fh) {
+        const perm = await fh.queryPermission({ mode: 'read' });
+        if (perm !== 'granted') {
+          const req = await fh.requestPermission({ mode: 'read' });
+          if (req !== 'granted') fh = null;
+        }
+      }
+      if (!fh) {
+        [fh] = await window.showOpenFilePicker({
+          types: [{ description: 'Excel workbook', accept: { 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'] } }],
+          multiple: false
+        });
+        await idbPut('excelFile', fh);
+      }
+      const file = await fh.getFile();
+      const buf  = await file.arrayBuffer();
+      const wb   = XLSX.read(buf, { type: 'array', cellDates: true });
+
+      if (wb.SheetNames.length < 4) { alert('Expected at least 4 sheets. Check your workbook.'); return; }
+
+      const trades  = parseSheet3(wb.Sheets[wb.SheetNames[2]]);
+      const { evalLog, payouts, bankroll } = parseSheet4(wb.Sheets[wb.SheetNames[3]]);
+
+      data = { lastImported: new Date().toISOString(), trades, evalLog, payouts, bankroll };
+      lastJson = JSON.stringify(data);
+      try { localStorage.setItem(LS_KEY, lastJson); } catch {}
+
+      renderAll();
+      schedulePush();
+      await saveJSON(data);
+      btn.textContent = '✓ Imported';
+      setTimeout(() => { btn.textContent = '⬆ Import Excel'; }, 2000);
+    } catch (e) {
+      if (e.name !== 'AbortError') { console.error(e); alert('Import failed: ' + e.message); }
+      btn.textContent = '⬆ Import Excel';
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  // ── Sub-tabs ──────────────────────────────────────────────────
+  document.querySelectorAll('.subtab').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.subtab').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      const t = btn.dataset.tab;
+      document.getElementById('tabOverview').classList.toggle('hidden', t !== 'overview');
+      document.getElementById('tabStats').classList.toggle('hidden', t !== 'stats');
+    });
+  });
+
+  // ── Calendar nav ──────────────────────────────────────────────
+  document.getElementById('fundedCalPrev').addEventListener('click', () => {
+    fundedCalMonth.setMonth(fundedCalMonth.getMonth() - 1); renderCalendars();
+  });
+  document.getElementById('fundedCalNext').addEventListener('click', () => {
+    fundedCalMonth.setMonth(fundedCalMonth.getMonth() + 1); renderCalendars();
+  });
+  document.getElementById('evalCalPrev').addEventListener('click', () => {
+    evalCalMonth.setMonth(evalCalMonth.getMonth() - 1); renderCalendars();
+  });
+  document.getElementById('evalCalNext').addEventListener('click', () => {
+    evalCalMonth.setMonth(evalCalMonth.getMonth() + 1); renderCalendars();
+  });
+
+  document.getElementById('importBtn').addEventListener('click', importExcel);
+
+  // ── Boot ──────────────────────────────────────────────────────
+  try {
+    const raw = localStorage.getItem(LS_KEY);
+    if (raw) { data = JSON.parse(raw); lastJson = raw; }
+  } catch {}
+
+  renderAll();
+  doPull();
+  initSync();
+  window.addEventListener('focus', doPull);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) doPull(); });
+})();
+</script>
+</body>
+</html>
