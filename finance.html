@@ -1820,6 +1820,7 @@ input[type="date"]::-webkit-calendar-picker-indicator {
         <option value="monthly">Monthly</option>
         <option value="weekly">Weekly</option>
         <option value="yearly">Yearly</option>
+        <option value="once-off">Once-off</option>
       </select>
       <button class="quick-add-btn" id="incomeAddBtn" style="background:rgba(107,227,164,0.12);color:#6BE3A4;border:1px solid rgba(107,227,164,0.25)">+ Add</button>
     </div>
@@ -2919,22 +2920,25 @@ input[type="date"]::-webkit-calendar-picker-indicator {
     if (empty) empty.style.display = 'none';
     let monthly = 0;
     items.forEach((it, idx) => {
-      const m = monthlyEquivalent(it);
+      const isOnce = it.period === 'once-off';
+      const m = isOnce ? 0 : monthlyEquivalent(it);
       monthly += m;
       const row = document.createElement('div');
       row.style.cssText = 'display:grid;grid-template-columns:1fr auto auto;align-items:center;padding:12px 14px;background:rgba(107,227,164,0.04);border:1px solid rgba(107,227,164,0.10);border-radius:var(--radius-md);margin-bottom:8px;gap:12px;';
       const left = document.createElement('div');
       left.style.cssText = 'min-width:0';
+      const periodLabel = isOnce ? 'Once-off' : (it.period || 'monthly');
       left.innerHTML = '<div style="font-weight:600;color:var(--text-primary);font-size:14px">' + escapeHtml(it.name) + '</div>'
-        + '<div style="font-size:11px;color:var(--text-tertiary);margin-top:2px;text-transform:capitalize">' + (it.period || 'monthly') + '</div>';
+        + '<div style="font-size:11px;color:var(--text-tertiary);margin-top:2px;text-transform:capitalize">' + periodLabel + '</div>';
       const costEl = document.createElement('div');
       costEl.style.cssText = 'text-align:right;line-height:1.1';
-      const origHint = (it.entered_currency && it.entered_currency !== 'CHF' && it.entered_amount != null)
-        ? '<div style="font-size:10px;color:var(--text-tertiary);margin-top:2px">' + it.entered_currency + ' ' + Number(it.entered_amount).toLocaleString('en-US',{minimumFractionDigits:it.entered_amount%1===0?0:2,maximumFractionDigits:2}) + ' / ' + (it.period||'monthly') + '</div>'
-        : (it.period !== 'monthly' ? '<div style="font-size:10px;color:var(--text-tertiary);margin-top:2px">= ' + fmtMoney(m) + ' / mo</div>' : '');
-      costEl.innerHTML = '<div style="font-size:20px;font-weight:700;color:#6BE3A4;font-variant-numeric:tabular-nums">' + fmtMoney(m) + '</div>'
-        + '<div style="font-size:10px;color:var(--text-tertiary);margin-top:1px">/ month</div>'
-        + origHint;
+      const displayAmt = isOnce ? it.amount : m;
+      const origHint = !isOnce && it.entered_currency && it.entered_currency !== 'CHF' && it.entered_amount != null
+        ? '<div style="font-size:10px;color:var(--text-tertiary);margin-top:2px">' + it.entered_currency + ' ' + Number(it.entered_amount).toLocaleString('en-US',{minimumFractionDigits:it.entered_amount%1===0?0:2,maximumFractionDigits:2}) + ' / ' + it.period + '</div>'
+        : (!isOnce && it.period !== 'monthly' ? '<div style="font-size:10px;color:var(--text-tertiary);margin-top:2px">= ' + fmtMoney(m) + ' / mo</div>' : '');
+      const perLabel = isOnce ? '' : '<div style="font-size:10px;color:var(--text-tertiary);margin-top:1px">/ month</div>';
+      costEl.innerHTML = '<div style="font-size:20px;font-weight:700;color:#6BE3A4;font-variant-numeric:tabular-nums">' + fmtMoney(displayAmt) + '</div>'
+        + perLabel + origHint;
       const del = document.createElement('button');
       del.title = 'Delete';
       del.style.cssText = 'background:transparent;border:1px solid rgba(255,255,255,0.10);color:var(--text-tertiary);cursor:pointer;font-size:12px;padding:3px 7px;border-radius:5px;font-family:inherit;line-height:1';
