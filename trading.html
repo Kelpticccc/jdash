@@ -395,52 +395,52 @@ body::before {
       cells.push(row);
     }
 
-    const result = { evalLog: [], payouts: [], bankroll: 1000 };
+    const result = { evalLog: [], payouts: [] };
 
-    console.log('[Trading] Sheet4 rows (first 15):', cells.slice(0, 15).map(r => r.slice(0, 5)));
-
+    // Scan every cell in every row — tables are not in col A
     for (let i = 0; i < cells.length; i++) {
       const row = cells[i];
-      const c0  = String(row[0] || '').trim().toLowerCase();
-      const c1  = String(row[1] || '').trim().toLowerCase();
-      const c2  = String(row[2] || '').trim().toLowerCase();
+      for (let j = 0; j < row.length; j++) {
+        const cell = String(row[j] || '').trim().toLowerCase();
+        if (cell !== 'date') continue;
 
-      // Eval log: header row with 'date' and ('cost' or 'fee' or 'price') in first two cols
-      if (c0 === 'date' && (c1.includes('cost') || c1.includes('fee') || c1.includes('price') || c2.includes('cost'))) {
-        console.log('[Trading] Found eval log header at row', i, '| cols:', row.slice(0, 5));
-        // detect which column has cost/passed/prop
-        const colCost   = [1,2,3,4].find(x => /cost|fee|price/i.test(String(row[x]||''))) ?? 1;
-        const colPassed = [1,2,3,4].find(x => /pass|result/i.test(String(row[x]||''))) ?? 2;
-        const colProp   = [1,2,3,4].find(x => /prop|firm|broker/i.test(String(row[x]||''))) ?? 3;
-        for (let k = i + 1; k < cells.length; k++) {
-          const rr = cells[k];
-          const dateVal = rr[0];
-          if (!dateVal && dateVal !== 0) break;
-          const date = fmtDate(dateVal);
-          if (!date) break;
-          const cost   = parseFloat(String(rr[colCost]   || '').replace(/[$,]/g, '')) || 0;
-          const passed = /^(y|yes|true|1|pass)$/i.test(String(rr[colPassed] || '').trim());
-          const prop   = String(rr[colProp] || '').trim();
-          result.evalLog.push({ date, cost, passed, prop });
-        }
-        console.log('[Trading] Eval log parsed:', result.evalLog.length, 'entries');
-      }
+        const n1 = String(row[j+1] || '').trim().toLowerCase();
+        const n2 = String(row[j+2] || '').trim().toLowerCase();
+        const n3 = String(row[j+3] || '').trim().toLowerCase();
 
-      // Payouts: header row with 'date' and 'value' or 'payout' or 'amount'
-      if (c0 === 'date' && (c1.includes('value') || c1.includes('payout') || c1.includes('amount'))) {
-        console.log('[Trading] Found payouts header at row', i);
-        for (let k = i + 1; k < cells.length; k++) {
-          const rr = cells[k];
-          if (!rr[0]) break;
-          const date = fmtDate(rr[0]);
-          if (!date) break;
-          const val = parseFloat(String(rr[1] || '').replace(/[$,]/g, '')) || 0;
-          if (val) result.payouts.push({ date, value: val });
+        // Evals table: Date | Cost | Passed | Prop
+        if (n1.includes('cost') || n1.includes('fee') || n2.includes('cost')) {
+          const colCost   = (n1.includes('cost') || n1.includes('fee')) ? j+1 : j+2;
+          const colPassed = n1.includes('cost') ? j+2 : j+3;
+          const colProp   = n1.includes('cost') ? j+3 : j+4;
+          for (let k = i+1; k < cells.length; k++) {
+            const rr = cells[k];
+            const dateVal = rr[j];
+            if (!dateVal && dateVal !== 0) break;
+            const date = fmtDate(dateVal);
+            if (!date) break;
+            const cost   = parseFloat(String(rr[colCost]   || '').replace(/[$,]/g, '')) || 0;
+            const passed = /^(y|yes|true|1|pass)$/i.test(String(rr[colPassed] || '').trim());
+            const prop   = String(rr[colProp] || '').trim();
+            result.evalLog.push({ date, cost, passed, prop });
+          }
+          console.log('[Trading] Eval log found at row', i, 'col', j, '→', result.evalLog.length, 'entries');
         }
-        console.log('[Trading] Payouts parsed:', result.payouts.length, 'entries');
+
+        // Payouts table: Date | Value
+        if (n1.includes('value') || n1.includes('payout') || n1.includes('amount')) {
+          for (let k = i+1; k < cells.length; k++) {
+            const rr = cells[k];
+            if (!rr[j] && rr[j] !== 0) break;
+            const date = fmtDate(rr[j]);
+            if (!date) break;
+            const val = parseFloat(String(rr[j+1] || '').replace(/[$,]/g, '')) || 0;
+            if (val) result.payouts.push({ date, value: val });
+          }
+          console.log('[Trading] Payouts found at row', i, 'col', j, '→', result.payouts.length, 'entries');
+        }
       }
     }
-    console.log('[Trading] Sheet4 result:', JSON.stringify(result).slice(0, 300));
     return result;
   }
 
