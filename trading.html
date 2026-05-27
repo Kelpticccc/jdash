@@ -667,7 +667,22 @@ body::before {
     document.getElementById('avgrTable').innerHTML = tbl;
   }
 
-  function renderAll() { renderToday(); renderCalendars(); renderStats(); }
+  function renderAll() {
+    if (data) {
+      const today = todayStr();
+      const t = data.trades || [];
+      const fToday = t.filter(x => x.accountType === 'Funded' && x.date === today);
+      const eToday = t.filter(x => x.accountType === 'Eval'   && x.date === today);
+      const withDate = t.filter(x => x.date);
+      console.log('[Overview] today:', today, '| total trades:', t.length, '| with valid date:', withDate.length);
+      console.log('[Overview] funded today:', fToday.length, '| eval today:', eToday.length);
+      console.log('[Overview] all dates:', [...new Set(t.map(x => x.date))]);
+      console.log('[Overview] all accountTypes:', [...new Set(t.map(x => x.accountType))]);
+    } else {
+      console.log('[Overview] data is null — nothing to render');
+    }
+    renderToday(); renderCalendars(); renderStats();
+  }
 
   // ── Sync ─────────────────────────────────────────────────────
   function setSyncDot(s) {
