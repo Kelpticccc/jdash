@@ -2218,6 +2218,10 @@ input[type="date"]::-webkit-calendar-picker-indicator {
       sliceTotals[cat.key] = sub;
       if (sub > 0) breakdown.push(cat.key + ': ' + fmtMoney(sub));
     });
+    // Once-off income items (e.g. trading deposits) count as assets
+    const incomeItems = storeGet('income') || [];
+    const onceOffCHF = incomeItems.filter(it => it.period === 'once-off').reduce((s, it) => s + (Number(it.amount) || 0), 0);
+    grand += onceOffCHF;
     if (netWorthTotal) netWorthTotal.textContent = fmtMoney(grand);
     if (netWorthBreakdown) netWorthBreakdown.textContent = breakdown.join('  •  ');
     logNetWorthSnapshot(grand);
@@ -2998,6 +3002,8 @@ input[type="date"]::-webkit-calendar-picker-indicator {
       const items = storeGet('nw:' + cat.key) || [];
       items.forEach(it => { g += Number(it.amount) || 0; });
     });
+    const incomeItems = storeGet('income') || [];
+    g += incomeItems.filter(it => it.period === 'once-off').reduce((s, it) => s + (Number(it.amount) || 0), 0);
     return g;
   }
   function pctClass(pct) {
