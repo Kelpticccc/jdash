@@ -397,33 +397,38 @@ body::before {
 
     const result = { evalLog: [], payouts: [], bankroll: 1000 };
 
+    console.log('[Trading] Sheet4 rows (first 15):', cells.slice(0, 15).map(r => r.slice(0, 5)));
+
     for (let i = 0; i < cells.length; i++) {
       const row = cells[i];
-      const c0  = String(row[0] || '').trim();
-      const c1  = String(row[1] || '').trim();
+      const c0  = String(row[0] || '').trim().toLowerCase();
+      const c1  = String(row[1] || '').trim().toLowerCase();
+      const c2  = String(row[2] || '').trim().toLowerCase();
 
-      // Bankroll
-      if (c0.toLowerCase() === 'bankroll') {
-        result.bankroll = parseFloat(c1.replace(/[$,]/g, '')) || 1000;
-      }
-
-      // Eval log: header row "Date | Cost | Passed | Prop"
-      if (c0 === 'Date' && c1.toLowerCase().includes('cost')) {
+      // Eval log: header row with 'date' and ('cost' or 'fee' or 'price') in first two cols
+      if (c0 === 'date' && (c1.includes('cost') || c1.includes('fee') || c1.includes('price') || c2.includes('cost'))) {
+        console.log('[Trading] Found eval log header at row', i, '| cols:', row.slice(0, 5));
+        // detect which column has cost/passed/prop
+        const colCost   = [1,2,3,4].find(x => /cost|fee|price/i.test(String(row[x]||''))) ?? 1;
+        const colPassed = [1,2,3,4].find(x => /pass|result/i.test(String(row[x]||''))) ?? 2;
+        const colProp   = [1,2,3,4].find(x => /prop|firm|broker/i.test(String(row[x]||''))) ?? 3;
         for (let k = i + 1; k < cells.length; k++) {
           const rr = cells[k];
           const dateVal = rr[0];
           if (!dateVal && dateVal !== 0) break;
           const date = fmtDate(dateVal);
           if (!date) break;
-          const cost    = parseFloat(String(rr[1] || '').replace(/[$,]/g, '')) || 0;
-          const passed  = String(rr[2] || '').trim().toUpperCase() === 'Y';
-          const prop    = String(rr[3] || '').trim();
+          const cost   = parseFloat(String(rr[colCost]   || '').replace(/[$,]/g, '')) || 0;
+          const passed = /^(y|yes|true|1|pass)$/i.test(String(rr[colPassed] || '').trim());
+          const prop   = String(rr[colProp] || '').trim();
           result.evalLog.push({ date, cost, passed, prop });
         }
+        console.log('[Trading] Eval log parsed:', result.evalLog.length, 'entries');
       }
 
-      // Payouts: header "Date | Value"
-      if (c0 === 'Date' && c1.toLowerCase().includes('value')) {
+      // Payouts: header row with 'date' and 'value' or 'payout' or 'amount'
+      if (c0 === 'date' && (c1.includes('value') || c1.includes('payout') || c1.includes('amount'))) {
+        console.log('[Trading] Found payouts header at row', i);
         for (let k = i + 1; k < cells.length; k++) {
           const rr = cells[k];
           if (!rr[0]) break;
@@ -432,8 +437,10 @@ body::before {
           const val = parseFloat(String(rr[1] || '').replace(/[$,]/g, '')) || 0;
           if (val) result.payouts.push({ date, value: val });
         }
+        console.log('[Trading] Payouts parsed:', result.payouts.length, 'entries');
       }
     }
+    console.log('[Trading] Sheet4 result:', JSON.stringify(result).slice(0, 300));
     return result;
   }
 
@@ -626,7 +633,7 @@ body::before {
       ['Last 10 Rate',   (last10passed * 10).toFixed(0) + '%'],
       ['Payouts',        '$' + cumPayouts.toFixed(2)],
       ['Net P&L',        (netPL >= 0 ? '+$' : '-$') + Math.abs(netPL).toFixed(2), netPL >= 0 ? 'pos' : 'neg'],
-      ['Bankroll',       '$' + (data.bankroll || 0).toFixed(0)],
+      ['Cum Eval Cost',  '$' + cumCost.toFixed(0)],
     ];
     document.getElementById('acctOverview').innerHTML = items.map(([l, v, c]) =>
       `<div><div class="acct-item-label">${l}</div><div class="acct-item-val ${c||''}">${v}</div></div>`
