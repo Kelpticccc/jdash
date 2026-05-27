@@ -12,7 +12,7 @@
 
   // -------- Supabase config (replace with your own project URL + publishable key) --------
   const TOPBAR_SUPABASE_URL = 'https://stbfzmdvjcnxgsorekvy.supabase.co';
-  const TOPBAR_SUPABASE_KEY = 'sb_publishable_pfCo6RgIuWg3DSCCqTw4_A_-0KgBOMe';
+  const TOPBAR_SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN0YmZ6bWR2amNueGdzb3Jla3Z5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk3NzYwNTYsImV4cCI6MjA5NTM1MjA1Nn0.j9zePA6whCpIa6vizzzJjU4nQQC6YTr9Aj7BLxe5gLA';
 
   // -------- CSS --------
   const css = `
