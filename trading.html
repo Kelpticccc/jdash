@@ -749,10 +749,10 @@ body::before {
         const trades  = parseSheet3(wb.Sheets[wb.SheetNames[2]]);
         const { evalLog, payouts, bankroll } = parseSheet4(wb.Sheets[wb.SheetNames[3]]);
         data = { lastImported: new Date().toISOString(), trades, evalLog, payouts, bankroll };
-        lastJson = JSON.stringify(data);
-        try { localStorage.setItem(LS_KEY, lastJson); } catch {}
+        lastJson = null; // clear so doPush sees a change and actually sends
+        try { localStorage.setItem(LS_KEY, JSON.stringify(data)); } catch {}
         renderAll();
-        schedulePush();
+        doPush();
         saveJSON(data);
         btn.textContent = '✓ Imported';
         setTimeout(() => { btn.textContent = '⬆ Import Excel'; }, 2500);
