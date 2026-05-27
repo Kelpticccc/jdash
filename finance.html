@@ -1377,6 +1377,24 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
   .ord-add-grid .ord-input-from { text-align: center; }
   .ord-add-grid .ord-add-btn { text-align: center; }
 
+  /* ---------- Income add row ---------- */
+  #incomeAddForm {
+    flex-direction: column;
+    align-items: stretch;
+    padding: 8px;
+    gap: 8px;
+  }
+  #incomeAddForm input,
+  #incomeAddForm select,
+  #incomeAddForm button {
+    flex: none !important;
+    max-width: none !important;
+    min-width: 0 !important;
+    width: 100%;
+    padding: 12px 14px !important;
+    font-size: 15px !important;
+  }
+
   /* ---------- Wishlist add row ---------- */
   .wish-add-row {
     flex-direction: column;
@@ -1772,6 +1790,42 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   </div>
 </div>
 
+<!-- ===== INCOME ===== -->
+<div class="section" data-section="income">
+  <div class="section-title">
+    <span class="section-title-text">INCOME</span>
+  </div>
+  <div class="card" style="background:linear-gradient(135deg,rgba(107,227,164,0.07),rgba(125,211,252,0.04));border:1px solid rgba(107,227,164,0.20)">
+    <div style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:12px;margin-bottom:12px">
+      <div>
+        <div style="font-size:11px;color:var(--text-tertiary);text-transform:uppercase;letter-spacing:0.04em;font-weight:500">Monthly income</div>
+        <div id="incomeTotal" style="font-size:28px;font-weight:700;color:#6BE3A4;line-height:1.1;margin-top:2px">CHF 0 <span style="font-size:13px;color:var(--text-tertiary);font-weight:500">/ mo</span></div>
+        <div id="incomeYearly" style="font-size:11px;color:var(--text-tertiary);margin-top:2px"></div>
+      </div>
+      <div id="incomeCount" style="font-size:11px;color:var(--text-tertiary)"></div>
+    </div>
+    <div id="incomeList"></div>
+    <div class="empty-state" id="incomeEmpty">No income sources yet</div>
+    <div class="quick-add" id="incomeAddForm" style="flex-wrap:wrap;gap:6px">
+      <input type="text" placeholder="Source (e.g. Day job)" id="incomeName" style="flex:1.5;min-width:120px" />
+      <input type="number" placeholder="Amount" id="incomeAmount" step="0.01" style="flex:1;max-width:100px" />
+      <select id="incomeCurrency" style="padding:6px 10px;border:0.5px solid var(--border);border-radius:var(--radius-md);font-size:12px;font-family:inherit;background:var(--bg-card);color:var(--text-primary);max-width:90px">
+        <option value="CHF">CHF</option>
+        <option value="USD">USD</option>
+        <option value="EUR">EUR</option>
+        <option value="GBP">GBP</option>
+        <option value="AUD">AUD</option>
+      </select>
+      <select id="incomePeriod" style="padding:6px 10px;border:0.5px solid var(--border);border-radius:var(--radius-md);font-size:12px;font-family:inherit;background:var(--bg-card);color:var(--text-primary);max-width:100px">
+        <option value="monthly">Monthly</option>
+        <option value="weekly">Weekly</option>
+        <option value="yearly">Yearly</option>
+      </select>
+      <button class="quick-add-btn" id="incomeAddBtn" style="background:rgba(107,227,164,0.12);color:#6BE3A4;border:1px solid rgba(107,227,164,0.25)">+ Add</button>
+    </div>
+  </div>
+</div>
+
 <!-- ===== INCOMING ORDERS ===== -->
 <div class="section" data-section="incoming">
   <div class="section-title">
@@ -1886,6 +1940,10 @@ input[type="date"]::-webkit-calendar-picker-indicator {
     <span class="bot-tab-icon">🎯</span>
     <span class="bot-tab-label">Wishlist</span>
   </button>
+  <button class="bot-tab" data-tab="income">
+    <span class="bot-tab-icon">💰</span>
+    <span class="bot-tab-label">Income</span>
+  </button>
 </nav>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -1905,7 +1963,7 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   const _SB_URL   = 'https://stbfzmdvjcnxgsorekvy.supabase.co';
   const _SB_KEY   = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN0YmZ6bWR2amNueGdzb3Jla3Z5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk3NzYwNTYsImV4cCI6MjA5NTM1MjA1Nn0.j9zePA6whCpIa6vizzzJjU4nQQC6YTr9Aj7BLxe5gLA';
   const _SB_SYNC  = 'finance';
-  const _FIN_KEYS = ['nw:bank','nw:stocks','nw:crypto','nw:other','nw:activity','nw:history','nw_currency','subs','incoming_orders','wishlist'];
+  const _FIN_KEYS = ['nw:bank','nw:stocks','nw:crypto','nw:other','nw:activity','nw:history','nw_currency','subs','incoming_orders','wishlist','income'];
   let _supa = null, _pushTimer = null, _lastJson = null;
 
   function _collectState() {
@@ -1919,6 +1977,7 @@ input[type="date"]::-webkit-calendar-picker-indicator {
     });
     renderAllNetWorth();
     if (typeof renderSubs === 'function') renderSubs();
+    if (typeof renderIncome === 'function') renderIncome();
   }
   function _schedulePush() {
     if (_pushTimer) clearTimeout(_pushTimer);
@@ -2837,6 +2896,89 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   if (subName)   subName.addEventListener('keydown', (e) => { if (e.key === 'Enter') doSubAdd(); });
   if (subAmount) subAmount.addEventListener('keydown', (e) => { if (e.key === 'Enter') doSubAdd(); });
   renderSubs();
+
+  // ============================================================
+  // INCOME
+  // ============================================================
+  function renderIncome() {
+    const list  = document.getElementById('incomeList');
+    const empty = document.getElementById('incomeEmpty');
+    const total = document.getElementById('incomeTotal');
+    const yearly= document.getElementById('incomeYearly');
+    const count = document.getElementById('incomeCount');
+    if (!list) return;
+    const items = storeGet('income') || [];
+    list.innerHTML = '';
+    if (!items.length) {
+      if (empty) empty.style.display = 'flex';
+      if (total) total.innerHTML = 'CHF 0 <span style="font-size:13px;color:var(--text-tertiary);font-weight:500">/ mo</span>';
+      if (yearly) yearly.textContent = '';
+      if (count) count.textContent = '';
+      return;
+    }
+    if (empty) empty.style.display = 'none';
+    let monthly = 0;
+    items.forEach((it, idx) => {
+      const m = monthlyEquivalent(it);
+      monthly += m;
+      const row = document.createElement('div');
+      row.style.cssText = 'display:grid;grid-template-columns:1fr auto auto;align-items:center;padding:12px 14px;background:rgba(107,227,164,0.04);border:1px solid rgba(107,227,164,0.10);border-radius:var(--radius-md);margin-bottom:8px;gap:12px;';
+      const left = document.createElement('div');
+      left.style.cssText = 'min-width:0';
+      left.innerHTML = '<div style="font-weight:600;color:var(--text-primary);font-size:14px">' + escapeHtml(it.name) + '</div>'
+        + '<div style="font-size:11px;color:var(--text-tertiary);margin-top:2px;text-transform:capitalize">' + (it.period || 'monthly') + '</div>';
+      const costEl = document.createElement('div');
+      costEl.style.cssText = 'text-align:right;line-height:1.1';
+      const origHint = (it.entered_currency && it.entered_currency !== 'CHF' && it.entered_amount != null)
+        ? '<div style="font-size:10px;color:var(--text-tertiary);margin-top:2px">' + it.entered_currency + ' ' + Number(it.entered_amount).toLocaleString('en-US',{minimumFractionDigits:it.entered_amount%1===0?0:2,maximumFractionDigits:2}) + ' / ' + (it.period||'monthly') + '</div>'
+        : (it.period !== 'monthly' ? '<div style="font-size:10px;color:var(--text-tertiary);margin-top:2px">= ' + fmtMoney(m) + ' / mo</div>' : '');
+      costEl.innerHTML = '<div style="font-size:20px;font-weight:700;color:#6BE3A4;font-variant-numeric:tabular-nums">' + fmtMoney(m) + '</div>'
+        + '<div style="font-size:10px;color:var(--text-tertiary);margin-top:1px">/ month</div>'
+        + origHint;
+      const del = document.createElement('button');
+      del.title = 'Delete';
+      del.style.cssText = 'background:transparent;border:1px solid rgba(255,255,255,0.10);color:var(--text-tertiary);cursor:pointer;font-size:12px;padding:3px 7px;border-radius:5px;font-family:inherit;line-height:1';
+      del.textContent = '×';
+      del.addEventListener('click', () => {
+        if (!confirm('Delete "' + it.name + '"?')) return;
+        items.splice(idx, 1); storeSet('income', items); renderIncome();
+      });
+      row.appendChild(left); row.appendChild(costEl); row.appendChild(del);
+      list.appendChild(row);
+    });
+    if (total) total.innerHTML = fmtMoney(monthly) + ' <span style="font-size:13px;color:var(--text-tertiary);font-weight:500">/ mo</span>';
+    if (yearly) yearly.textContent = '~' + fmtMoney(monthly * 12) + ' per year';
+    if (count) count.textContent = items.length + (items.length === 1 ? ' source' : ' sources');
+  }
+
+  function doIncomeAdd() {
+    try {
+      const nEl = document.getElementById('incomeName');
+      const aEl = document.getElementById('incomeAmount');
+      const ccEl= document.getElementById('incomeCurrency');
+      const pEl = document.getElementById('incomePeriod');
+      if (!nEl || !aEl) return;
+      const n = (nEl.value || '').trim();
+      const aRaw = parseFloat(aEl.value);
+      if (!n || isNaN(aRaw)) { nEl.focus(); return; }
+      const enteredCcy = ccEl ? ccEl.value : 'CHF';
+      const rate = exchangeRates[enteredCcy] || 1;
+      const amountCHF = aRaw / rate;
+      const items = storeGet('income') || [];
+      items.push({ name: n, amount: amountCHF, period: pEl ? pEl.value : 'monthly', entered_amount: aRaw, entered_currency: enteredCcy });
+      storeSet('income', items);
+      nEl.value = ''; aEl.value = '';
+      renderIncome();
+    } catch (e) { console.error('incomeAdd failed', e); }
+  }
+
+  const incomeAddBtn = document.getElementById('incomeAddBtn');
+  const incomeNameEl = document.getElementById('incomeName');
+  const incomeAmtEl  = document.getElementById('incomeAmount');
+  if (incomeAddBtn) incomeAddBtn.addEventListener('click', doIncomeAdd);
+  if (incomeNameEl) incomeNameEl.addEventListener('keydown', (e) => { if (e.key === 'Enter') doIncomeAdd(); });
+  if (incomeAmtEl)  incomeAmtEl.addEventListener('keydown',  (e) => { if (e.key === 'Enter') doIncomeAdd(); });
+  renderIncome();
 
   // ============================================================
   // WISHLIST — items with % of net worth.
