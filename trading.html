@@ -418,16 +418,20 @@ body::before {
           const colCost   = (n1.includes('cost') || n1.includes('fee')) ? j+1 : j+2;
           const colPassed = n1.includes('cost') ? j+2 : j+3;
           const colProp   = n1.includes('cost') ? j+3 : j+4;
+          let lastDate = ''; let emptyStreak = 0;
           for (let k = i+1; k < cells.length; k++) {
             const rr = cells[k];
             const dateVal = rr[j];
-            if (!dateVal && dateVal !== 0) break;
-            const date = fmtDate(dateVal);
+            const cost = parseFloat(String(rr[colCost] || '').replace(/[$,]/g, ''));
+            // Stop if both date and cost are empty (true end of table)
+            if (!dateVal && !cost) { if (++emptyStreak >= 2) break; continue; }
+            emptyStreak = 0;
+            const date = fmtDate(dateVal) || lastDate; // carry merged date forward
             if (!date) continue;
-            const cost   = parseFloat(String(rr[colCost]   || '').replace(/[$,]/g, '')) || 0;
+            lastDate = date;
             const passed = /^(y|yes|true|1|pass)$/i.test(String(rr[colPassed] || '').trim());
             const prop   = String(rr[colProp] || '').trim();
-            result.evalLog.push({ date, cost, passed, prop });
+            result.evalLog.push({ date, cost: cost || 0, passed, prop });
           }
           console.log('[Trading] Eval log found at row', i, 'col', j, '→', result.evalLog.length, 'entries');
         }
@@ -747,8 +751,8 @@ body::before {
         const wb = XLSX.read(e.target.result, { type: 'array', cellDates: true });
         if (wb.SheetNames.length < 4) { alert('Expected at least 4 sheets. Check your workbook.'); return; }
         const trades  = parseSheet3(wb.Sheets[wb.SheetNames[2]]);
-        const { evalLog, payouts, bankroll } = parseSheet4(wb.Sheets[wb.SheetNames[3]]);
-        data = { lastImported: new Date().toISOString(), trades, evalLog, payouts, bankroll };
+        const { evalLog, payouts, bankroll, rorForPayout } = parseSheet4(wb.Sheets[wb.SheetNames[3]]);
+        data = { lastImported: new Date().toISOString(), trades, evalLog, payouts, bankroll, rorForPayout };
         lastJson = null; // clear so doPush sees a change and actually sends
         try { localStorage.setItem(LS_KEY, JSON.stringify(data)); } catch {}
         renderAll();
