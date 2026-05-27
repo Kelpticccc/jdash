@@ -180,6 +180,7 @@ body::before {
     <div class="header-right">
       <span class="sync-dot" id="syncDot"></span>
       <button class="import-btn" id="importBtn">⬆ Import Excel</button>
+  <input type="file" id="excelFileInput" accept=".xlsx" style="display:none">
     </div>
   </div>
 
@@ -280,31 +281,6 @@ body::before {
   fundedCalMonth.setDate(1);
   evalCalMonth.setDate(1);
 
-  // ── IndexedDB file handle persistence ────────────────────────
-  function idbOpen() {
-    return new Promise((res, rej) => {
-      const req = indexedDB.open('trading-fsa', 1);
-      req.onupgradeneeded = e => e.target.result.createObjectStore('handles');
-      req.onsuccess = e => res(e.target.result);
-      req.onerror   = rej;
-    });
-  }
-  async function idbPut(key, val) {
-    const db = await idbOpen();
-    return new Promise((res, rej) => {
-      const tx = db.transaction('handles', 'readwrite');
-      tx.objectStore('handles').put(val, key);
-      tx.oncomplete = res; tx.onerror = rej;
-    });
-  }
-  async function idbGet(key) {
-    const db = await idbOpen();
-    return new Promise((res, rej) => {
-      const tx = db.transaction('handles', 'readonly');
-      const req = tx.objectStore('handles').get(key);
-      req.onsuccess = () => res(req.result); req.onerror = rej;
-    });
-  }
 
   // ── Date helpers ──────────────────────────────────────────────
   function todayStr() {
@@ -712,75 +688,49 @@ body::before {
       .subscribe();
   }
 
-  // ── JSON file write ───────────────────────────────────────────
-  async function saveJSON(d) {
+  // ── JSON file write (download to Trading folder) ─────────────
+  function saveJSON(d) {
     try {
-      let dirHandle = await idbGet('tradingDir');
-      if (dirHandle) {
-        const perm = await dirHandle.queryPermission({ mode: 'readwrite' });
-        if (perm !== 'granted') {
-          const req = await dirHandle.requestPermission({ mode: 'readwrite' });
-          if (req !== 'granted') dirHandle = null;
-        }
-      }
-      if (!dirHandle) {
-        dirHandle = await window.showDirectoryPicker({ mode: 'readwrite', startIn: 'documents' });
-        await idbPut('tradingDir', dirHandle);
-      }
-      const fh = await dirHandle.getFileHandle('trading_data.json', { create: true });
-      const w  = await fh.createWritable();
-      await w.write(JSON.stringify(d, null, 2));
-      await w.close();
-    } catch (e) {
-      if (e.name !== 'AbortError') console.warn('JSON save failed:', e);
-    }
+      const blob = new Blob([JSON.stringify(d, null, 2)], { type: 'application/json' });
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement('a');
+      a.href = url; a.download = 'trading_data.json'; a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (e) { console.warn('JSON save failed:', e); }
   }
 
   // ── Import from Excel ─────────────────────────────────────────
-  async function importExcel() {
+  function processFile(file) {
+    if (!file) return;
     const btn = document.getElementById('importBtn');
-    btn.textContent = '⏳ Reading…';
-    btn.disabled = true;
-    try {
-      let fh = await idbGet('excelFile');
-      if (fh) {
-        const perm = await fh.queryPermission({ mode: 'read' });
-        if (perm !== 'granted') {
-          const req = await fh.requestPermission({ mode: 'read' });
-          if (req !== 'granted') fh = null;
-        }
+    btn.textContent = '⏳ Reading…'; btn.disabled = true;
+    const reader = new FileReader();
+    reader.onload = function (e) {
+      try {
+        const wb = XLSX.read(e.target.result, { type: 'array', cellDates: true });
+        if (wb.SheetNames.length < 4) { alert('Expected at least 4 sheets. Check your workbook.'); return; }
+        const trades  = parseSheet3(wb.Sheets[wb.SheetNames[2]]);
+        const { evalLog, payouts, bankroll } = parseSheet4(wb.Sheets[wb.SheetNames[3]]);
+        data = { lastImported: new Date().toISOString(), trades, evalLog, payouts, bankroll };
+        lastJson = JSON.stringify(data);
+        try { localStorage.setItem(LS_KEY, lastJson); } catch {}
+        renderAll();
+        schedulePush();
+        saveJSON(data);
+        btn.textContent = '✓ Imported';
+        setTimeout(() => { btn.textContent = '⬆ Import Excel'; }, 2500);
+      } catch (err) {
+        console.error(err); alert('Parse failed: ' + err.message);
+        btn.textContent = '⬆ Import Excel';
+      } finally {
+        btn.disabled = false;
       }
-      if (!fh) {
-        [fh] = await window.showOpenFilePicker({
-          types: [{ description: 'Excel workbook', accept: { 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'] } }],
-          multiple: false
-        });
-        await idbPut('excelFile', fh);
-      }
-      const file = await fh.getFile();
-      const buf  = await file.arrayBuffer();
-      const wb   = XLSX.read(buf, { type: 'array', cellDates: true });
+    };
+    reader.readAsArrayBuffer(file);
+  }
 
-      if (wb.SheetNames.length < 4) { alert('Expected at least 4 sheets. Check your workbook.'); return; }
-
-      const trades  = parseSheet3(wb.Sheets[wb.SheetNames[2]]);
-      const { evalLog, payouts, bankroll } = parseSheet4(wb.Sheets[wb.SheetNames[3]]);
-
-      data = { lastImported: new Date().toISOString(), trades, evalLog, payouts, bankroll };
-      lastJson = JSON.stringify(data);
-      try { localStorage.setItem(LS_KEY, lastJson); } catch {}
-
-      renderAll();
-      schedulePush();
-      await saveJSON(data);
-      btn.textContent = '✓ Imported';
-      setTimeout(() => { btn.textContent = '⬆ Import Excel'; }, 2000);
-    } catch (e) {
-      if (e.name !== 'AbortError') { console.error(e); alert('Import failed: ' + e.message); }
-      btn.textContent = '⬆ Import Excel';
-    } finally {
-      btn.disabled = false;
-    }
+  function importExcel() {
+    document.getElementById('excelFileInput').click();
   }
 
   // ── Sub-tabs ──────────────────────────────────────────────────
@@ -809,6 +759,10 @@ body::before {
   });
 
   document.getElementById('importBtn').addEventListener('click', importExcel);
+  document.getElementById('excelFileInput').addEventListener('change', e => {
+    processFile(e.target.files[0]);
+    e.target.value = ''; // reset so same file can be picked again
+  });
 
   // ── Boot ──────────────────────────────────────────────────────
   try {
