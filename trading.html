@@ -327,7 +327,13 @@ body::before {
   function parseSheet3(ws) {
     const rows = XLSX.utils.sheet_to_json(ws, { header: 1, raw: true, defval: '' });
     if (rows.length < 2) return [];
-    const hdr = rows[0].map(h => String(h || '').trim());
+
+    // Find the actual header row (first row containing 'Date' in any cell)
+    let hdrIdx = 0;
+    for (let i = 0; i < Math.min(rows.length, 10); i++) {
+      if (rows[i].some(c => String(c || '').trim().toLowerCase() === 'date')) { hdrIdx = i; break; }
+    }
+    const hdr = rows[hdrIdx].map(h => String(h || '').trim());
     const col  = n => hdr.findIndex(h => h.toLowerCase().trim() === n.toLowerCase().trim());
 
     const iDate    = col('Date');
@@ -340,11 +346,11 @@ body::before {
     const iAccType = col('Account Type');
     const iAccSize = col('Acc Size');
     const iRules   = col('Followed Rules');
-    console.log('[Trading] Sheet3 headers:', hdr);
+    console.log('[Trading] Sheet3 header row index:', hdrIdx, '| headers:', hdr);
     console.log('[Trading] Col indices → date:', iDate, 'pair:', iPair, 'sess:', iSess, 'risk:', iRisk, 'pnlR:', iPnlR, 'outcome:', iOutcome, 'accType:', iAccType, 'accSize:', iAccSize, 'rules:', iRules);
 
     const trades = [];
-    for (let i = 1; i < rows.length; i++) {
+    for (let i = hdrIdx + 1; i < rows.length; i++) {
       const r = rows[i];
       const outcome = String(r[iOutcome] || '').trim().toUpperCase();
       if (!outcome || !['TP','SL','BE'].includes(outcome)) continue;
