@@ -111,6 +111,21 @@
 body.has-bottombar {
   padding-bottom: calc(72px + env(safe-area-inset-bottom)) !important;
 }
+.bottombar-tab-icon-wrap {
+  position: relative;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.bottombar-tab-badge {
+  position: absolute; top: 0; right: -3px;
+  width: 8px; height: 8px; border-radius: 50%;
+  background: #FF6B6B; display: none;
+  animation: badge-pulse 1.4s ease-in-out infinite;
+}
+@keyframes badge-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(255,107,107,0.5); }
+  50%       { box-shadow: 0 0 0 4px rgba(255,107,107,0); }
+}
+.bottombar-tab.has-overdue .bottombar-tab-badge { display: block; }
 @media (max-width: 480px) {
   .topbar { padding-left: 10px; padding-right: 10px; gap: 6px; }
   .topbar-water-pill { padding: 8px 11px; gap: 6px; }
@@ -173,6 +188,13 @@ body.topbar-modal-open { overflow: hidden; touch-action: none; }
   <a href="gym.html" class="bottombar-tab" data-page="fitness">
     <span class="bottombar-tab-icon">💪</span><span>Fitness</span>
   </a>
+  <a href="schedule.html" class="bottombar-tab" data-page="schedule">
+    <span class="bottombar-tab-icon-wrap">
+      <span class="bottombar-tab-icon">📅</span>
+      <span class="bottombar-tab-badge"></span>
+    </span>
+    <span>Schedule</span>
+  </a>
 </nav>`;
 
   function isFinancePage() {
@@ -187,7 +209,38 @@ body.topbar-modal-open { overflow: hidden; touch-action: none; }
     const p = (window.location.pathname || '').toLowerCase();
     if (p.endsWith('health.html')) return 'health';
     if (p.endsWith('gym.html')) return 'fitness';
+    if (p.endsWith('schedule.html')) return 'schedule';
     return 'main';
+  }
+
+  function checkScheduleOverdue() {
+    const tab = document.querySelector('.bottombar-tab[data-page="schedule"]');
+    if (!tab) return;
+    let sched = null;
+    try { sched = JSON.parse(localStorage.getItem('schedule_v1')); } catch (e) {}
+    if (!sched || !Array.isArray(sched.events) || !sched.events.length) {
+      tab.classList.remove('has-overdue'); return;
+    }
+    const now = new Date();
+    const todayStr = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
+    const nowMins = now.getHours() * 60 + now.getMinutes();
+    const dow = now.getDay();
+    const hasOverdue = sched.events.some((ev) => {
+      if (!ev) return false;
+      let applies = false;
+      switch (ev.recurrence) {
+        case 'none':     applies = ev.date === todayStr; break;
+        case 'daily':    applies = true; break;
+        case 'weekdays': applies = dow >= 1 && dow <= 5; break;
+        case 'weekends': applies = dow === 0 || dow === 6; break;
+        case 'weekly':   applies = Array.isArray(ev.weeklyDays) && ev.weeklyDays.includes(dow); break;
+      }
+      if (!applies) return false;
+      if (ev.done && ev.done[todayStr]) return false;
+      const [eh, em] = (ev.endTime || '00:00').split(':').map(Number);
+      return nowMins > (eh * 60 + em);
+    });
+    tab.classList.toggle('has-overdue', hasOverdue);
   }
 
   function injectStyleAndHTML() {
@@ -336,12 +389,14 @@ body.topbar-modal-open { overflow: hidden; touch-action: none; }
     const btn = document.getElementById('topbarWaterAdd');
     if (btn) btn.addEventListener('click', (e) => { e.preventDefault(); addWater(); });
     render();
+    checkScheduleOverdue();
     lockGestures();
     startModalLock();
-    window.addEventListener('storage', render);
-    window.addEventListener('focus', render);
-    document.addEventListener('visibilitychange', () => { if (!document.hidden) render(); });
+    window.addEventListener('storage', () => { render(); checkScheduleOverdue(); });
+    window.addEventListener('focus', () => { render(); checkScheduleOverdue(); });
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) { render(); checkScheduleOverdue(); } });
     setInterval(render, 30 * 1000);
+    setInterval(checkScheduleOverdue, 60 * 1000);
   }
 
   if (document.readyState === 'loading') {
